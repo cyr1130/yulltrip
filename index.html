@@ -368,6 +368,9 @@
     :root { --header-h: 76px; }
     header { padding: 0 16px; }
     .new-trip-btn { padding: 8px 12px; font-size: 13px; }
+    .hide-m { display: none; }   /* 좁은 화면: '+ 새 일정'으로 줄여서 저장 버튼 자리를 만든다 */
+    .header-right { gap: 6px; }
+    .header-right .login-btn { padding: 7px 11px; font-size: 13px; }
     .new-trip { padding: 20px 16px; }
     .layout { display: block; }
     aside { position: absolute; inset: 0; width: auto; border: 0; overflow: hidden; padding: 0; }
@@ -412,7 +415,8 @@
   <button class="header-back" id="headerBack" aria-label="뒤로가기"></button>
   <div class="header-right">
     <div class="account" id="account"></div>
-    <button class="new-trip-btn" id="newTripBtn">+ 새 일정 추가하기</button>
+    <button class="new-trip-btn" id="newTripBtn">+ 새 일정<span class="hide-m"> 추가하기</span></button>
+    <button class="login-btn save-btn" id="saveBtn">저장</button>
   </div>
 </header>
 
@@ -683,8 +687,10 @@ function loadStore() {
   return { trips: [trip], currentId: trip.id };
 }
 // 저장: 이 브라우저(localStorage)에 바로 저장하고, 로그인돼 있으면 서버(Firebase)에도 올린다
-function save() {
+// touch: 일정을 실제로 고친 저장이면 그 여행에 '마지막으로 고친 시각'을 남긴다 (로그인할 때 합치는 기준)
+function save(touch = true) {
   if (VIEW_ONLY) return;   // 보기 전용 화면은 아무것도 저장하지 않는다
+  if (touch) state.updatedAt = Date.now();
   store.currentId = state.id;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch {}
   pushCloud();
@@ -1376,14 +1382,15 @@ function showNewTrip(show) {
     <button type="button" class="nt-trip" data-trip="${t.id}">
       <div class="grow"><div class="nm">${esc(t.title)}</div><div class="dt">${esc(t.country || '')}${t.country ? ' · ' : ''}${fmtRange(t.start, t.end)}</div></div>
       ${t.id === state.id ? '<span class="cur">지금 보는 여행</span>' : ''}
-    </button>`).join('');
+    </button>`).join('') + `<div id="saveList">${savesListHtml()}</div>` + backupListHtml();
+  loadSaves();
   setTimeout(() => ntForm.elements.title.focus(), 50);
 }
 function openTrip(trip) {
   state = trip;
   currentDay = 0; activeId = null; detailOpen = false;
   collapsed.clear(); openSlots.clear();
-  syncDayCount(); save();
+  syncDayCount(); save(false);
   showNewTrip(false);
   snapSheet('mid');
   renderAll(true);
@@ -1434,9 +1441,26 @@ $('expenseBody').addEventListener('click', e => {
 $('newTripBtn').addEventListener('click', () => { showExpenses(false); showNewTrip(true); });
 $('newTripCancel').addEventListener('click', () => showNewTrip(false));
 $('tripList').addEventListener('click', e => {
+  const r = e.target.closest('[data-restore]');
+  if (r) { const [bi, ti] = r.dataset.restore.split(':').map(Number); restoreBackupTrip(bi, ti); return; }
+  const sv = e.target.closest('[data-save]');
+  if (sv) { const [si, ti] = sv.dataset.save.split(':').map(Number); const t = savesCache[si]?.trips[ti]; if (t) restoreTripCopy(t, '저장 기록'); return; }
   const b = e.target.closest('[data-trip]'); if (!b) return;
   openTrip(store.trips.find(t => t.id === b.dataset.trip));
 });
+// 이 브라우저에 백업된 여행 (최근 것부터). 지금 여행 목록에 똑같은 게 있으면 빼고 보여준다.
+function backupListHtml() {
+  const same = t => store.trips.some(s => s.title === t.title && JSON.stringify(s.days) === JSON.stringify(t.days) && s.start === t.start);
+  const rows = getBackups().flatMap((b, bi) => b.trips.map((t, ti) => ({ b, bi, t, ti })))
+    .filter(x => !same(x.t)).reverse();
+  if (!rows.length) return '';
+  const when = at => at ? new Date(at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' 백업' : '백업';
+  return `<h3 style="margin-top:24px">이 브라우저에 백업된 여행</h3>` + rows.map(({ b, bi, t, ti }) => `
+    <button type="button" class="nt-trip" data-restore="${bi}:${ti}">
+      <div class="grow"><div class="nm">${esc(t.title)}</div><div class="dt">${fmtRange(t.start, t.end)} · 일정 ${t.days.flat().length}개 · ${when(b.at)}</div></div>
+      <span class="cur">불러오기</span>
+    </button>`).join('');
+}
 ntForm.addEventListener('input', e => e.target.classList.remove('invalid'));
 ntForm.addEventListener('submit', e => {
   e.preventDefault();
@@ -2003,11 +2027,13 @@ async function onAuth(user) {
     const snap = await cloudDoc.get();
     const remote = snap.exists ? snap.data().data : '';
     if (remote) {
-      // 서버에 이미 일정이 있으면 서버 것을 쓴다. 이 브라우저에 있던 것은 혹시 몰라 따로 백업해 둔다.
-      if (remote !== JSON.stringify(store)) {
-        try { localStorage.setItem(STORAGE_KEY + '-local-backup', JSON.stringify(store)); } catch {}
-      }
-      applyStore(JSON.parse(remote));
+      // 서버 일정과 이 브라우저 일정을 합친다 (덮어쓰지 않는다).
+      // 같은 여행이면 더 최근에 고친 쪽, 서버에 없는 여행은 추가. 합치기 전 이 브라우저 내용은 백업 목록에 쌓아 둔다.
+      const remoteStore = JSON.parse(remote);
+      if (JSON.stringify(store.trips) !== JSON.stringify(remoteStore.trips)) addBackup(store);
+      const merged = mergeStores(remoteStore, store);
+      applyStore(merged);
+      if (JSON.stringify(merged.trips) !== JSON.stringify(remoteStore.trips)) { lastPushed = ''; pushCloud(true); }
     } else {
       pushCloud(true);   // 처음 로그인: 이 브라우저의 일정을 서버로 올린다
     }
@@ -2019,6 +2045,93 @@ async function onAuth(user) {
     if (d && d !== lastPushed && d !== JSON.stringify(store)) applyStore(JSON.parse(d));
   });
 }
+function mergeStores(remote, local) {
+  const trips = remote.trips.slice();
+  for (const lt of local.trips) {
+    if (!lt.updatedAt) continue;   // 한 번도 고치지 않은 여행(처음 보이는 예시 등)은 합치지 않는다
+    const i = trips.findIndex(t => t.id === lt.id);
+    if (i < 0) trips.push(lt);
+    else if (lt.updatedAt > (trips[i].updatedAt || 0)) trips[i] = lt;
+  }
+  return { trips, currentId: remote.currentId };
+}
+
+// 백업: 이 브라우저 안에 최근 10개까지 쌓는다. 예전 방식(하나만 저장)의 백업도 목록으로 옮긴다.
+const BACKUP_KEY = STORAGE_KEY + '-local-backups', OLD_BACKUP_KEY = STORAGE_KEY + '-local-backup';
+function getBackups() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); } catch {}
+  try {
+    const old = localStorage.getItem(OLD_BACKUP_KEY);
+    if (old) {
+      const s = JSON.parse(old);
+      if (!list.some(b => JSON.stringify(b.trips) === JSON.stringify(s.trips))) list.unshift({ at: 0, trips: s.trips });
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(list));
+      localStorage.removeItem(OLD_BACKUP_KEY);
+    }
+  } catch {}
+  return list;
+}
+function addBackup(s) {
+  const list = getBackups();
+  if (list.some(b => JSON.stringify(b.trips) === JSON.stringify(s.trips))) return;
+  list.push({ at: Date.now(), trips: JSON.parse(JSON.stringify(s.trips)) });
+  try { localStorage.setItem(BACKUP_KEY, JSON.stringify(list.slice(-10))); } catch {}
+}
+// 백업한 여행을 새 여행으로 추가해서 연다 (지금 일정은 건드리지 않는다)
+function restoreBackupTrip(bi, ti) {
+  const t = getBackups()[bi]?.trips[ti]; if (t) restoreTripCopy(t, '백업');
+}
+function restoreTripCopy(t, label) {
+  const copy = JSON.parse(JSON.stringify(t));
+  Object.assign(copy, { id: uid(), title: `${t.title} (${label})`, updatedAt: Date.now() });
+  delete copy.shareId;
+  store.trips.push(copy);
+  openTrip(copy);
+  toast('여행을 불러왔어요. 새 여행으로 추가됐어요.');
+}
+
+/* ---- 저장 버튼 ----
+   1) 지금 일정을 바로 서버에 저장 (평소 자동 저장을 기다리지 않음)
+   2) 그 시점의 일정을 users/{uid}/saves 에 한 벌씩 따로 기록 → '새 일정 추가하기' 화면의 '저장 기록'에서 다시 불러올 수 있다 */
+async function saveNow() {
+  if (VIEW_ONLY) return;
+  save(false);
+  addBackup(store);   // 이 브라우저에도 한 벌 남긴다
+  if (!cloudDoc) { toast('이 브라우저에 저장했어요. 로그인하면 서버에도 저장돼요.'); return; }
+  clearTimeout(cloudTimer);
+  const data = JSON.stringify(store);
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  try {
+    await cloudDoc.set({ data, updatedAt: ts });
+    lastPushed = data;
+    store.trips.filter(t => t.shareId).forEach(t => writeShare(t).catch(() => {}));
+  } catch (e) { console.warn('저장 실패', e); toast('저장하지 못했어요. 인터넷 연결을 확인해 주세요.'); return; }
+  try { await cloudDoc.collection('saves').add({ data, at: ts }); toast('저장했어요.'); }
+  catch (e) { console.warn('저장 기록 실패', e); toast('저장했어요. (저장 기록은 보안 규칙을 바꾸면 남아요)'); }
+}
+$('saveBtn').addEventListener('click', saveNow);
+
+// '새 일정 추가하기' 화면: 서버에 남긴 저장 기록 (최근 10번)
+let savesCache = [];
+async function loadSaves() {
+  if (!cloudDoc) return;
+  try {
+    const snap = await cloudDoc.collection('saves').orderBy('at', 'desc').limit(10).get();
+    savesCache = snap.docs.map(d => ({ at: d.data().at?.toMillis?.() || 0, trips: JSON.parse(d.data().data).trips }));
+  } catch { savesCache = []; }
+  if (!$('newTripPage').hidden) $('saveList').innerHTML = savesListHtml();
+}
+function savesListHtml() {
+  if (!savesCache.length) return '';
+  const when = at => new Date(at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `<h3 style="margin-top:24px">저장 기록</h3>` + savesCache.flatMap((s, si) => s.trips.map((t, ti) => `
+    <button type="button" class="nt-trip" data-save="${si}:${ti}">
+      <div class="grow"><div class="nm">${esc(t.title)}</div><div class="dt">${fmtRange(t.start, t.end)} · 일정 ${t.days.flat().length}개 · ${when(s.at)} 저장</div></div>
+      <span class="cur">불러오기</span>
+    </button>`)).join('');
+}
+
 function pushCloud(now) {
   if (!cloudDoc) return;
   clearTimeout(cloudTimer);
@@ -2101,7 +2214,7 @@ if (VIEW_ONLY) {
   $('tripTitle').contentEditable = 'false';
 }
 syncDayCount();
-save();   // 예전 형식에서 옮겨 온 경우 새 형식으로 바로 저장
+save(false);   // 예전 형식에서 옮겨 온 경우 새 형식으로 바로 저장 (고친 것은 아님)
 snapSheet('mid');
 renderAll(true);
 initCloud();
