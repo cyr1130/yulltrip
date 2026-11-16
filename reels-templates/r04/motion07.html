@@ -14,8 +14,22 @@ const S = {
   menu: "이 동영상 분석하기\n아이디어 얻기", pick: true, pickItem: "1", pillR: 26,
   colors: { bar: "#1c1c1c", text: "#ececec", icon: "#ececec", sparkle: "#2f9bff", hover: "#ffffff", line: "#3a3a3a", pill: "#2a2a2a", pillText: "#ececec" },
   d1: 16, d2: 80, d3: 30, d4: 44,
+  // ⑤ 채팅창
+  showChat: true, chatW: 1100, dim: true, chatTitle: "새 채팅",
+  ask1: "Video to prompt 을(를) 사용하여", ask2: "동영상 1... 업스케일 을(를) 분석하세요",
+  status: "생각을 정리하는 중...\n모두 종합하는 중...\n모든 것을 정렬하는 중...\n디테일 마무리하는 중...",
+  steps: "스킬 사용: 동영상을 프롬프트로\n동영상 분석", thinking: "생각 중...",
+  placeholder: "아이디어나 스크립트로 시작하세요. @ 기호를 사용하여 요소를 멘션하거나 \"/\"를 입력하여 스킬을 사용하세요.",
+  model: "Dola Seed 2.0 Lite", img: { thumb: [] },
+  chatColors: { panel: "#1b1b1b", bubble: "#2a2a2a", input: "#222222", text: "#ececec", sub: "#bdbdbd", spin: "#2f9bff" },
+  d5: 140,
 };
-const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3, d = S.pick ? +S.d4 : 0; return { s2: a, s3: a + b, s4: a + b + c, total: a + b + c + d + 24 }; };
+const T = () => {
+  const a = +S.d1, b = +S.d2, c = +S.d3, s4 = a + b + c, click2 = s4 + Math.round(+S.d4 * .62);
+  const chat = S.pick ? click2 + 8 : s4 + 2;
+  const total = S.showChat ? chat + +S.d5 : s4 + (S.pick ? +S.d4 : 0) + 24;
+  return { s2: a, s3: a + b, s4, click2, chat, total };
+};
 
 // 드리미나 동영상 툴바 아이콘 (24 그리드)
 const R = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
@@ -68,6 +82,86 @@ function drawItem(it, hover, active, press, flip) {
   ctx.restore();
 }
 
+// ---------- ⑤ 에이전트 채팅창 (원본 화면 335×705 기준 좌표, u 배로 키움) ----------
+const PW = 335, PHH = 705;
+function shimmerText(txt, x, y, col, f) {
+  ctx.fillStyle = col; ctx.fillText(txt, x, y);
+  const w = ctx.measureText(txt).width, ph = ((f % 36) / 36) * (w + 80) - 40;
+  ctx.save(); ctx.globalCompositeOperation = "source-atop";
+  const g = ctx.createLinearGradient(x + ph - 30, 0, x + ph + 30, 0); g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(.5, "rgba(255,255,255,.9)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.restore(); ctx.save(); ctx.fillStyle = g; ctx.globalAlpha *= .9; ctx.fillText(txt, x, y); ctx.restore();
+}
+function spinner(x, y, r, col, f) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(f * .32); ctx.strokeStyle = col; ctx.lineCap = "round"; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * .7); ctx.stroke(); ctx.globalAlpha *= .55; ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, Math.PI * 1.5); ctx.stroke(); ctx.restore();
+}
+function chat(f, s) {
+  const e0 = prog(f, s, s + 12); if (e0 <= 0) return;
+  const cc = S.chatColors, u = (+S.chatW || 1100) / PW, ph = PHH * u;
+  if (S.dim && S.keyMode !== "none") { ctx.fillStyle = `rgba(0,0,0,${.6 * easeOut(e0)})`; ctx.fillRect(0, 0, W, H); }
+  const sc = lerp(.55, 1, back(e0)), x0 = W / 2 - PW * u / 2, y0 = H / 2 - ph / 2;
+  ctx.save(); ctx.globalAlpha = clamp(e0 * 2.5);
+  ctx.translate(W / 2, H / 2 + lerp(80, 0, easeOut(e0))); ctx.scale(sc * u, sc * u); ctx.translate(-PW / 2, -PHH / 2);
+  // 창
+  U.shadow(S, () => { E.rr(0, 0, PW, PHH, 14); ctx.fillStyle = cc.panel; ctx.fill(); }, 30, 8, "rgba(0,0,0,.6)");
+  E.rr(0, 0, PW, PHH, 14); ctx.fillStyle = cc.panel; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = .7; ctx.stroke();
+  ctx.textBaseline = "middle";
+  // 머리줄
+  ctx.font = `600 11px ${E.SANS}`; ctx.fillStyle = cc.text; ctx.fillText(S.chatTitle, 14, 22); const tw = ctx.measureText(S.chatTitle).width;
+  I.chevron(14 + tw + 9, 23, 9, cc.text, 1.1);
+  V.chat(247, 22, 12, cc.sub, 1.1); I.agent(279, 22, 12, cc.sub, 1.1); I.full(312, 22, 11, cc.sub, 1.1);
+  // 요청 말풍선
+  const eb = easeOut(prog(f, s + 6, s + 16));
+  if (eb > 0) {
+    ctx.save(); ctx.globalAlpha *= eb; ctx.translate(0, lerp(10, 0, eb));
+    ctx.font = `500 10.5px ${E.SANS}`; const bw = Math.min(290, Math.max(ctx.measureText(S.ask1).width, ctx.measureText(S.ask2).width) + 50), bx = 317 - bw;
+    E.rr(bx, 60, bw, 58, 10); ctx.fillStyle = cc.bubble; ctx.fill();
+    V.analyze(bx + 18, 79, 10, cc.text, 1.1); ctx.fillStyle = cc.text; ctx.fillText(S.ask1, bx + 33, 79);
+    const im = U.img(S, "img.thumb");
+    if (im) U.photo(im, bx + 13, 91, 10, 12, 1.5); else { E.rr(bx + 13, 91, 10, 12, 1.5); const g = ctx.createLinearGradient(0, 91, 0, 103); g.addColorStop(0, "#5a1a1a"); g.addColorStop(1, "#c4202a"); ctx.fillStyle = g; ctx.fill(); }
+    ctx.fillStyle = cc.text; ctx.fillText(S.ask2, bx + 33, 97);
+    ctx.restore();
+  }
+  // 진행 문구 + 로딩
+  const es = prog(f, s + 16, s + 22);
+  if (es > 0) {
+    ctx.save(); ctx.globalAlpha *= es;
+    const list = String(S.status).split("\n").map(v => v.trim()).filter(Boolean), cyc = 40;
+    const k = Math.max(0, Math.floor((f - s - 16) / cyc)) % Math.max(1, list.length), fade = clamp(((f - s - 16) % cyc) / 5);
+    spinner(28, 143, 5.5, cc.spin, f);
+    ctx.font = `600 11px ${E.SANS}`; ctx.globalAlpha *= (list.length > 1 ? fade : 1); if (list[k]) shimmerText(list[k], 41, 143, cc.text, f);
+    ctx.restore();
+  }
+  // 단계
+  const steps = String(S.steps).split("\n").map(v => v.trim()).filter(Boolean); let y = 174;
+  steps.forEach((st, i) => {
+    const a = easeOut(prog(f, s + 34 + i * 24, s + 42 + i * 24)); if (a <= 0) return;
+    const last = i === steps.length - 1;
+    ctx.save(); ctx.globalAlpha *= a; ctx.font = `500 10.5px ${E.SANS}`;
+    if (i === 0) V.analyze(31, y, 10, cc.sub, 1.1); else U.ico(31, y, 10, cc.sub, 1.1, c => { c.beginPath(); c.roundRect(-10, -10, 18, 18, 4); c.stroke(); c.beginPath(); c.arc(1, 1, 4.5, 0, 7); c.moveTo(4.5, 4.5); c.lineTo(9, 9); c.stroke(); });
+    if (last) shimmerText(st, 41, y, cc.sub, f); else { ctx.fillStyle = cc.sub; ctx.fillText(st, 41, y); }
+    ctx.restore(); y += 28;
+  });
+  if (S.thinking) {
+    const a = prog(f, s + 34 + steps.length * 24 + 10, s + 44 + steps.length * 24 + 10);
+    if (a > 0) { ctx.save(); ctx.globalAlpha *= a * (.55 + .35 * Math.sin(f * .2)); ctx.font = `500 10.5px ${E.SANS}`; ctx.fillStyle = "#6a6a6a"; ctx.fillText(S.thinking, 27, y); ctx.restore(); }
+  }
+  // 입력창
+  E.rr(5, 547, 325, 93, 12); ctx.fillStyle = cc.input; ctx.fill();
+  ctx.font = `400 10.5px ${E.SANS}`; ctx.fillStyle = "#7a7a7a";
+  const words = Array.from(String(S.placeholder)); let line = "", ly = 567;
+  for (const ch of words) { if (ctx.measureText(line + ch).width > 295) { ctx.fillText(line, 18, ly); line = ch.trim() ? ch : ""; ly += 18; if (ly > 600) break; } else line += ch; }
+  if (ly <= 600) ctx.fillText(line, 18, ly);
+  // 아래 줄
+  I.plus(31, 654, 12, cc.sub, 1.1); U.ico(61, 654, 12, cc.sub, 1.1, c => { c.beginPath(); c.moveTo(-9, -4); c.lineTo(9, -4); c.moveTo(-9, 4); c.lineTo(9, 4); c.stroke(); c.beginPath(); c.arc(3, -4, 2.5, 0, 7); c.fill(); c.beginPath(); c.arc(-3, 4, 2.5, 0, 7); c.fill(); });
+  V.analyze(91, 654, 11, cc.sub, 1.1); I.at(121, 654, 11, cc.sub, 1.1);
+  ctx.font = `500 10px ${E.SANS}`; const mw = ctx.measureText(S.model).width + 32, mx2 = 289 - mw;
+  E.rr(mx2, 642, mw, 24, 7); ctx.fillStyle = "#2c2c2c"; ctx.fill(); ctx.fillStyle = cc.text; ctx.fillText(S.model, mx2 + 9, 654); I.chevron(mx2 + mw - 12, 655, 8, cc.text, 1.1);
+  ctx.beginPath(); ctx.arc(303, 654, 13, 0, 7); ctx.fillStyle = "#ffffff"; ctx.fill(); E.rr(299.5, 650.5, 7, 7, 1.2); ctx.fillStyle = "#111"; ctx.fill();
+  ctx.font = `400 7.5px ${E.SANS}`; ctx.fillStyle = "#555"; ctx.textAlign = "center"; ctx.fillText("AI 생성 콘텐츠", PW / 2, 691); ctx.textAlign = "left";
+  ctx.restore();
+}
+
 E.start({
   title: "모션 07 · 동영상 툴바 + 에이전트 메뉴", group: "릴스04 템플릿", file: "motion07", state: S, alpha: true,
   intro: "드리미나 동영상 편집 툴바가 떠오르고 마우스가 버튼을 훑어가요. '에이전트에게 요청'을 누르면 화살표가 위로 뒤집히며 아래로 메뉴가 펼쳐지고, 원하면 메뉴 항목 하나를 골라 눌러요.",
@@ -88,8 +182,21 @@ E.start({
     { title: "④ 메뉴 항목 고르기", durKey: "4",
       rows: [[{ type: "bool", key: "pick", label: "메뉴 항목 클릭하기" }, { type: "select", key: "pickItem", label: "고를 항목", options: [["1", "첫 번째 (이 동영상 분석하기)"], ["2", "두 번째 (아이디어 얻기)"]] }],
         [{ type: "number", key: "d4", label: "길이 (프레임)", min: 10, max: 160 }]] },
+    { title: "⑤ 채팅창 뿅", durKey: "5", hint: "버튼을 누르면 화면 가운데에 에이전트 채팅창이 튀어나오고, 생각 중 문구가 바뀌며 단계가 하나씩 쌓여요. 진행 문구·단계는 줄마다 하나.",
+      rows: [[{ type: "bool", key: "showChat", label: "채팅창 띄우기" }, { type: "number", key: "d5", label: "길이 (프레임)", min: 24, max: 600 }],
+        [{ type: "number", key: "chatW", label: "채팅창 너비 (px)", min: 500, max: 1400 }, { type: "bool", key: "dim", label: "뒤 화면 어둡게" }],
+        [{ key: "chatTitle", label: "채팅 제목" }, { key: "model", label: "모델 이름" }],
+        [{ key: "ask1", label: "요청 첫 줄" }, { key: "ask2", label: "요청 둘째 줄" }],
+        [{ type: "images", key: "img.thumb", label: "요청 옆 작은 썸네일 (비우면 빨간 칸)", max: 1 }],
+        [{ type: "textarea", key: "status", label: "진행 문구 (차례로 바뀜)" }],
+        [{ type: "textarea", key: "steps", label: "단계 (하나씩 쌓임)" }],
+        [{ key: "thinking", label: "아래 흐린 문구 (비우면 없음)" }],
+        [{ type: "textarea", key: "placeholder", label: "입력창 안내 문구" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "chatColors.panel", label: "채팅창" }, { type: "color", key: "chatColors.bubble", label: "요청 말풍선" }],
+        [{ type: "color", key: "chatColors.text", label: "글자" }, { type: "color", key: "chatColors.spin", label: "로딩 아이콘" }]] },
   ],
-  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => (S.pick ? +S.d4 : 0) + 24 },
+  images: { "img.thumb": [] },
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => S.showChat ? (S.pick ? Math.round(+S.d4 * .62) + 8 : 2) : (S.pick ? +S.d4 : 0), 5: S => S.showChat ? +S.d5 : 24 },
   length: () => T().total,
   render(f) {
     ctx = E.ctx; const t = T(); U.bg(S); const c = S.colors;
@@ -105,7 +212,7 @@ E.start({
     const open = easeOut(prog(f, click, click + 12));
     const pi = clamp(Math.round(+S.pickItem) - 1, 0, Math.max(0, menu.length - 1)), P = menu[pi];
     const mv = S.pick && P ? easeInOut(prog(f, t.s4, t.s4 + +S.d4 * .55)) : 0;
-    const click2 = t.s4 + Math.round(+S.d4 * .62), cp2 = S.pick ? prog(f, click2 - 2, click2 + 6) : 0, press2 = cp2 > 0 && cp2 < 1 ? Math.sin(Math.PI * cp2) : 0;
+    const click2 = t.click2, cp2 = S.pick ? prog(f, click2 - 2, click2 + 6) : 0, press2 = cp2 > 0 && cp2 < 1 ? Math.sin(Math.PI * cp2) : 0;
     const chosen = S.pick ? easeOut(prog(f, click2, click2 + 6)) : 0;
     // 커서 (툴바 좌표)
     const steps = Math.max(1, Math.abs(b - a)), q = prog(f - t.s2, 0, +S.d2) * steps, seg = Math.min(steps - 1, Math.floor(q)), dir = b >= a ? 1 : -1;
@@ -144,10 +251,11 @@ E.start({
     });
     if (P && S.pick) U.ripple(tx, ty, prog(f, click2, click2 + 16), "#ffffff", 80);
     if (S.showCursor) {
-      const inA = easeOut(prog(f, t.s2 - 10, t.s2 + 4)), end = S.pick ? click2 : click, out = easeIn(prog(f, end + 14, t.total - 2));
+      const inA = easeOut(prog(f, t.s2 - 10, t.s2 + 4)), end = S.pick ? click2 : click, out = easeIn(prog(f, end + 10, Math.min(t.total - 2, end + 26)));
       U.arrow(curX + 6, curY + 8 + lerp(140, 0, inA) + out * 160, 1.5 / Math.max(.6, k), inA * (1 - out), Math.max(press, press2), U.green(S));
     }
     ctx.restore();
+    if (S.showChat) chat(f, t.chat);
   },
 });
 </script>
