@@ -236,6 +236,26 @@ async function __save(blob, name) {
 
   // ---------------- 편집기 UI ----------------
   const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  // 영상 파일도 이미지 칸에 넣을 수 있게: <video> 로 읽고, 화면 시간에 맞춰 프레임을 맞춤
+  const loadMedia = (src, type) => /^video\//.test(type || "") ? new Promise((res, rej) => {
+    const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.loop = true; v.preload = "auto";
+    v.onloadeddata = () => { v.naturalWidth = v.videoWidth; v.naturalHeight = v.videoHeight; v.isVideo = true; res(v); }; v.onerror = rej; v.src = src;
+  }) : loadImg(src);
+  function collectVideos(o, out = [], depth = 0) {
+    if (!o || typeof o !== "object" || depth > 5) return out;
+    if (o.isVideo) { out.push(o); return out; }
+    if (o instanceof Node) return out;
+    for (const k in o) collectVideos(o[k], out, depth + 1);
+    return out;
+  }
+  function syncVideos(S, t, mode) {   // mode: "play" | "still" | "exact"
+    const vs = [...new Set(collectVideos(S))];
+    if (mode !== "exact") { vs.forEach(v => { const tt = t % (v.duration || 1);
+      if (mode === "play") { if (v.paused) v.play().catch(() => {}); if (Math.abs(v.currentTime - tt) > .35) v.currentTime = tt; }
+      else { if (!v.paused) v.pause(); if (Math.abs(v.currentTime - tt) > .02 && !v.seeking) v.currentTime = tt; } }); return null; }
+    return Promise.all(vs.map(v => new Promise(r => { if (!v.paused) v.pause(); const tt = t % (v.duration || 1); if (Math.abs(v.currentTime - tt) < .001) return r();
+      let ok = false; const done = () => { if (ok) return; ok = true; v.removeEventListener("seeked", done); r(); }; v.addEventListener("seeked", done); v.currentTime = tt; setTimeout(done, 2000); })));
+  }
   const getK = (S, k) => k.split(".").reduce((o, p) => o[p], S);
   const setK = (S, k, v) => { const ps = k.split("."), last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; };
 
@@ -290,7 +310,7 @@ async function __save(blob, name) {
       </div></details>`).join("");
     function field(fd) {
       if (fd.type === "sub") return `<p class="sub-h">${fd.label}</p>`;   // 섹션 안 작은 제목
-      if (fd.type === "images") return `<div><p class="hint" style="margin-bottom:6px">${fd.label}</p><div class="slots" data-list="${fd.key}" data-max="${fd.max || 1}" ${fd.labels ? 'data-labels="1"' : ""}></div></div>`;
+      if (fd.type === "images") return `<div><p class="hint" style="margin-bottom:6px">${fd.label}</p><div class="slots" data-list="${fd.key}" data-max="${fd.max || 1}" ${fd.labels ? 'data-labels="1"' : ""} ${fd.video ? 'data-video="1"' : ""}></div></div>`;
       if (fd.type === "textarea") return `<label>${fd.label}<textarea data-key="${fd.key}"></textarea></label>`;
       if (fd.type === "bool") return `<label>${fd.label}<select data-key="${fd.key}" data-bool="1"><option value="1">켜기</option><option value="">끄기</option></select></label>`;
       if (fd.type === "select") return `<label>${fd.label}<select data-key="${fd.key}">${fd.options.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("")}</select></label>`;
@@ -333,7 +353,7 @@ async function __save(blob, name) {
     for (const key of imgKeys) {
       const saved = await E_save.loadImages(key); if (!Array.isArray(saved)) continue;
       const list = [];
-      for (const it of saved) { try { const url = URL.createObjectURL(it.blob); list.push({ img: await loadImg(url), url, blob: it.blob, label: it.label || "" }); } catch (e) {} }
+      for (const it of saved) { try { const url = URL.createObjectURL(it.blob); list.push({ img: await loadMedia(url, it.blob.type), url, blob: it.blob, label: it.label || "" }); } catch (e) {} }
       setK(S, key, list);
     }
     let saveT = 0; const saveLater = () => { clearTimeout(saveT); saveT = setTimeout(() => E_save.state(S), 250); };
@@ -347,7 +367,7 @@ async function __save(blob, name) {
       scrub.max = total() - 1;
       document.querySelectorAll("[data-dur]").forEach(el => { const k = el.dataset.dur; if (k && def.durations && def.durations[k]) el.textContent = (def.durations[k](S) / FPS).toFixed(2) + "초"; });
     }
-    function draw() { const T = total(); frame = Math.min(frame, T - 1); render(frame); scrub.value = Math.floor(frame); timeEl.textContent = `${(frame / FPS).toFixed(2)} / ${(T / FPS).toFixed(2)}초`; }
+    function draw() { const T = total(); frame = Math.min(frame, T - 1); if (!exporting) syncVideos(S, frame / FPS, playing ? "play" : "still"); render(frame); scrub.value = Math.floor(frame); timeEl.textContent = `${(frame / FPS).toFixed(2)} / ${(T / FPS).toFixed(2)}초`; }
     function loop(ts) { const dt = lastTs ? Math.min(ts - lastTs, 100) : 0; lastTs = ts; if (playing && !exporting) { frame = (frame + dt / 1000 * FPS) % (total() - 1); draw(); } requestAnimationFrame(loop); }
     document.getElementById("play").onclick = e => { playing = !playing; e.target.textContent = playing ? "❚❚ 일시정지" : "▶ 재생"; };
     scrub.oninput = () => { frame = +scrub.value; playing = false; document.getElementById("play").textContent = "▶ 재생"; draw(); };
@@ -380,9 +400,12 @@ async function __save(blob, name) {
       if (box._ready) E_save.images(key, list); box._ready = true;
       box.innerHTML = "";
       list.forEach((o, i) => {
-        const d = document.createElement("div"); d.className = "slot"; d.style.backgroundImage = `url("${o.url}")`;
-        const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
-        inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const url = URL.createObjectURL(f); list[i] = { ...o, img: await loadImg(url), url, blob: f }; renderSlots(box); refresh(); draw(); };
+        const d = document.createElement("div"); d.className = "slot"; const acc = box.dataset.video ? "image/*,video/*" : "image/*";
+        if (o.img && o.img.isVideo) { d.style.position = "relative"; const pv = document.createElement("video"); pv.src = o.url; pv.muted = true; pv.loop = true; pv.autoplay = true; pv.playsInline = true;
+          Object.assign(pv.style, { position: "absolute", inset: "0", width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit", pointerEvents: "none" }); d.append(pv); }
+        else d.style.backgroundImage = `url("${o.url}")`;
+        const inp = document.createElement("input"); inp.type = "file"; inp.accept = acc;
+        inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const url = URL.createObjectURL(f); list[i] = { ...o, img: await loadMedia(url, f.type), url, blob: f }; renderSlots(box); refresh(); draw(); };
         const x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.title = "삭제";
         x.onclick = e => { e.stopPropagation(); e.preventDefault(); list.splice(i, 1); renderSlots(box); refresh(); draw(); };
         d.append(inp, x);
@@ -392,8 +415,8 @@ async function __save(blob, name) {
       });
       if (list.length < max) {
         const d = document.createElement("div"); d.className = "slot add"; d.textContent = "+";
-        const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true;
-        inp.onchange = async () => { for (const f of [...inp.files].slice(0, max - list.length)) { const url = URL.createObjectURL(f); list.push({ img: await loadImg(url), url, blob: f, label: box.dataset.labels ? f.name.replace(/\.[^.]+$/, "") : "" }); } renderSlots(box); refresh(); draw(); };
+        const inp = document.createElement("input"); inp.type = "file"; inp.accept = box.dataset.video ? "image/*,video/*" : "image/*"; inp.multiple = true;
+        inp.onchange = async () => { for (const f of [...inp.files].slice(0, max - list.length)) { const url = URL.createObjectURL(f); list.push({ img: await loadMedia(url, f.type), url, blob: f, label: box.dataset.labels ? f.name.replace(/\.[^.]+$/, "") : "" }); } renderSlots(box); refresh(); draw(); };
         d.append(inp); box.append(d);
       }
     }
@@ -413,6 +436,7 @@ async function __save(blob, name) {
         enc.configure({ codec: "avc1.640034", width: W, height: H, bitrate: OF > 30 ? 40_000_000 : 24_000_000, framerate: OF, avc: { format: "avc" } });
         for (let i = 0; i < N; i++) {
           if (encErr) throw encErr;
+          await syncVideos(S, i / OF, "exact");
           render(i * FPS / OF);
           const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / OF), duration: Math.round(1e6 / OF) });
           enc.encode(vf, { keyFrame: i % (OF * 2) === 0 }); vf.close();
@@ -440,7 +464,7 @@ async function __save(blob, name) {
         rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
         render(0); rec.start(); const t0 = performance.now();
         for (let i = 0; i < N; i++) {
-          render(i * FPS / OF); track.requestFrame();
+          await syncVideos(S, i / OF, "exact"); render(i * FPS / OF); track.requestFrame();
           if (i % 4 === 0) st.textContent = `투명 내보내는 중… ${Math.round(i / N * 100)}% (이 탭을 보이는 상태로 두세요)`;
           const wait = t0 + (i + 1) * step - performance.now(); await new Promise(r => setTimeout(r, Math.max(0, wait)));
         }

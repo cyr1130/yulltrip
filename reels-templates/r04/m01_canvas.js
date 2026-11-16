@@ -307,7 +307,7 @@ E.start({
         [{ type: "number", key: "d3", label: "③ 결과 생성 (프레임)", min: 6, max: 160 }, { type: "number", key: "d4", label: "④ 머무름 (프레임)", min: 6, max: 240 }],
         [{ type: "bool", key: "showGen", label: "결과 섹션 '생성 중' 연출" }, { key: "genText", label: "생성 중 문구" }]] },
     ...SEC_TITLES.map((title, k) => ({ title, closed: k > 0, hint: k === 4 ? "결과 섹션이에요. 비우면 그 위의 마지막 섹션이 결과가 돼요." : "이미지를 1장 넣으면 가로로 길게, 2~4장이면 같은 크기로 나란히 놓여요. 비우면 이 섹션은 안 보여요.",
-      rows: [[{ type: "images", key: "img.s" + (k + 1), label: "이미지 / 영상 캡처 (최대 4장)", max: MAXN }],
+      rows: [[{ type: "images", key: "img.s" + (k + 1), label: "이미지 또는 영상 파일 (최대 4장, mp4·mov 가능)", max: MAXN, video: true }],
         [{ type: "textarea", key: `sec.${k}.names`, label: "노드 이름 (이미지 순서대로 줄마다 하나)" }],
         [{ type: "select", key: `sec.${k}.kind`, label: "종류", options: [["video", "영상 (재생 버튼)"], ["image", "이미지"]] }, { key: `sec.${k}.badge`, label: "왼쪽 위 배지 (비우면 없음)" }],
         ...(k === 4 ? [[{ key: "resultCount", label: "오른쪽 위 개수 (비우면 없음)" }]] : [])] })),
