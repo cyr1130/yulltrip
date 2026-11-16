@@ -400,7 +400,7 @@ async function __save(blob, name) {
       if (box._ready) E_save.images(key, list); box._ready = true;
       box.innerHTML = "";
       list.forEach((o, i) => {
-        const d = document.createElement("div"); d.className = "slot"; const acc = box.dataset.video ? "image/*,video/*" : "image/*";
+        const d = document.createElement("div"); d.className = "slot"; const acc = "image/*,video/*";
         if (o.img && o.img.isVideo) { d.style.position = "relative"; const pv = document.createElement("video"); pv.src = o.url; pv.muted = true; pv.loop = true; pv.autoplay = true; pv.playsInline = true;
           Object.assign(pv.style, { position: "absolute", inset: "0", width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit", pointerEvents: "none" }); d.append(pv); }
         else d.style.backgroundImage = `url("${o.url}")`;
@@ -415,7 +415,7 @@ async function __save(blob, name) {
       });
       if (list.length < max) {
         const d = document.createElement("div"); d.className = "slot add"; d.textContent = "+";
-        const inp = document.createElement("input"); inp.type = "file"; inp.accept = box.dataset.video ? "image/*,video/*" : "image/*"; inp.multiple = true;
+        const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*,video/*"; inp.multiple = true;
         inp.onchange = async () => { for (const f of [...inp.files].slice(0, max - list.length)) { const url = URL.createObjectURL(f); list.push({ img: await loadMedia(url, f.type), url, blob: f, label: box.dataset.labels ? f.name.replace(/\.[^.]+$/, "") : "" }); } renderSlots(box); refresh(); draw(); };
         d.append(inp); box.append(d);
       }
