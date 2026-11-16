@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 01</title>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
-<script src="assets.js"></script><script src="engine.js"></script></head>
+<script src="assets.js"></script><script src="engine.js"></script><script src="flowlink.js"></script></head>
 <body>
 <script>
 const E = Engine; let ctx;
@@ -12,7 +12,7 @@ const S = {
   images: { main: [], product: [], generated: [], output: [] },
   labels: { main: "Main Character", product: "Cute Pajama", generated: "Cute Pajama" },
   prompt: "Selfie of young woman, long wavy ash-blonde hair with bangs, big blue eyes, glossy pink lips, dewy kawaii makeup. Wearing fluffy pink bunny kigurumi hoodie with red hearts and cartoon bunny face on hood. Long stiletto nails with kawaii art, hand near face. Soft indoor lighting, dark tiled background iPhone selfie jirai kei, aesthetic",
-  hold: 26,
+  hold: 26, linkStyle: "glow", flowLoop: true, flowSec: 2.2, glow: "#1e8fff",
   genIcon: "", btnIcon: "",
   img: { genIcon: [], btnIcon: [] },
   colors: { canvasTop: "#01160e", canvasBottom: "#05060e", panel: "#2e2e2e", buttonRing: "#f2f2f2", frame: "#222222", label: "#6f7472",
@@ -81,6 +81,15 @@ function canvasScene(f) {
   const sc = lerp(.84, 1, camIn) + .03 * drift;
   ctx.save(); ctx.translate(720 - 8 * drift, 1280 - 14 * drift); ctx.scale(sc, sc); ctx.translate(-720, -1280);
   // 연결선
+  if (S.linkStyle === "glow") {
+    const pIn = easeInOut(prog(f, 12, 22)), bg = C.canvasBottom, o = { color: S.glow, width: 3, f, done: 22, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: sc };
+    E.el("lines", () => { let pa = 0;
+      [[848, 512, 836, 800, 846, 960, 874, 1024], [652, 734, 744, 742, 752, 984, 874, 1024], [578, 1240, 618, 1120, 800, 1104, 874, 1024]].forEach(P => { const r = FlowLink.draw(ctx, P, pIn, o); if (r) pa = r.portA; });
+      ctx.save(); ctx.strokeStyle = FlowLink.hexA(S.glow, .85); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(874, 1024); ctx.lineTo(892, 1024); ctx.globalAlpha *= pa; ctx.stroke(); ctx.restore();
+      [[848, 512], [652, 734], [578, 1240], [1112, 1318]].forEach(([x, y]) => E.dot(x, y, 1, 9)); FlowLink.port(ctx, 874, 1024, 20, pa, bg); });
+    const lp = easeInOut(prog(f, 20, 28));
+    if (lp > 0) E.el("line_output", () => { const r = FlowLink.draw(ctx, [1112, 1318, 1104, 1468, 760, 1452, 622, 1580], lp, { ...o, done: 28 }); if (r) FlowLink.port(ctx, 622, 1580, 20, r.portA, bg); });
+  } else {
   E.el("lines", () => { ctx.save(); ctx.strokeStyle = C.line; ctx.lineWidth = 3; ctx.lineCap = "round";
     [[848, 512, 836, 800, 846, 960, 874, 1024], [652, 734, 744, 742, 752, 984, 874, 1024], [578, 1240, 618, 1120, 800, 1104, 874, 1024]].forEach(p => { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]); ctx.stroke(); });
     ctx.beginPath(); ctx.moveTo(874, 1024); ctx.lineTo(892, 1024); ctx.stroke(); ctx.restore();
@@ -88,6 +97,7 @@ function canvasScene(f) {
   const lp = easeOut(prog(f, 20, 27));
   if (lp > 0) E.el("line_output", () => E.bez([1112, 1318, 1104, 1468, 760, 1452, 622, 1580], lp, { dash: false, color: C.line }));
   const dp = prog(f, 25, 27); if (dp > 0) { ctx.save(); ctx.globalAlpha *= dp; E.el("dot_output", () => E.dot(622, 1580, 1, 9)); ctx.restore(); }
+  }
   // 카드
   const card = (key, x, y, w, h, lab) => {
     if (lab) E.el("label_" + key, () => E.label(lab, x + 10, y - 26, C.label));
@@ -132,7 +142,9 @@ E.start({
              [{ type: "sub", label: "색상" }],
              [{ type: "color", key: "colors.canvasTop", label: "캔버스 위쪽" }, { type: "color", key: "colors.canvasBottom", label: "캔버스 아래쪽" }],
              [{ type: "color", key: "colors.frame", label: "카드 틀" }, { type: "color", key: "colors.label", label: "카드 라벨 글자" }],
-             [{ type: "color", key: "colors.line", label: "연결선" }]] },
+             [{ type: "select", key: "linkStyle", label: "연결선 모양", options: [["glow", "파란 빛이 흐르는 선"], ["plain", "흰 선 (예전)"]] }, { type: "color", key: "glow", label: "빛나는 선 색" }],
+             [{ type: "bool", key: "flowLoop", label: "연결 뒤에도 빛이 계속 흐름" }, { type: "number", key: "flowSec", label: "빛 한 바퀴 (초)", min: .5, max: 8 }],
+             [{ type: "color", key: "colors.line", label: "흰 선 (예전 모양일 때)" }]] },
     { title: "③ 캔버스 · 프롬프트",
       rows: [[{ type: "textarea", key: "prompt", label: "프롬프트 카드" }],
              [{ type: "sub", label: "생성 버튼 기호" }],
