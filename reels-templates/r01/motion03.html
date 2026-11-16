@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 03</title>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
-<script src="assets.js"></script><script src="engine.js"></script></head>
+<script src="assets.js"></script><script src="engine.js"></script><script src="flowlink.js"></script></head>
 <body>
 <script>
 const E = Engine; let ctx;
 const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf, kf2 } = E;
 
 const S = {
-  accent: "#d6ff1e", bg: "#141619",
+  accent: "#d6ff1e", bg: "#141619", linkStyle: "glow", flowLoop: true, flowSec: 2.2, glow: "#1e8fff",
   genLabel: "Image Generation", inputLabel: "Main Character", listIcon: "✦",
   colors: { card: "#232528", label: "#6f7472", caption: "#e6e6e6", line: "#e8e8e8", dial: "#ffffff",
             badgeBg: "#141416", badgeText: "#f2f2f2", dot: "#ffffff", grid: "#ffffff", listIconBg: "#2c2e31", settingBox: "#ffffff", panelBorder: "#ffffff",
@@ -52,9 +52,16 @@ function scene1(f, dur) {
   // 출력 점 → 점선 연결
   const dx = 828, dy = 1130;
   const flow = -f * 2.5;
+  if (S.linkStyle === "glow") {
+    const LO = { color: S.glow, width: 3, f, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: s };
+    const q1 = FlowLink.draw(ctx, [dx, dy, dx + 60, dy, 960, 980, 1034, 890], easeInOut(prog(f, 22 * k, 32 * k)), { ...LO, done: 32 * k });
+    const q2 = FlowLink.draw(ctx, [dx, dy, dx + 70, dy + 40, 960, 1300, 1016, 1395], easeInOut(prog(f, 26 * k, 36 * k)), { ...LO, done: 36 * k });
+    dot(dx, dy, 1, 9); if (q1) FlowLink.port(ctx, 1034, 890, 14, q1.portA, S.bg); if (q2) FlowLink.port(ctx, 1016, 1395, 14, q2.portA, S.bg);
+  } else {
   E.bez([dx, dy, dx + 60, dy, 960, 980, 1034, 890], easeOut(prog(f, 22 * k, 32 * k)), { flow, width: 3, color: S.colors.line });
   E.bez([dx, dy, dx + 70, dy + 40, 960, 1300, 1016, 1395], easeOut(prog(f, 26 * k, 36 * k)), { flow, width: 3, color: S.colors.line });
   dot(dx, dy, 1, 9); dot(1034, 890, prog(f, 30 * k, 32 * k), 8); dot(1016, 1395, prog(f, 34 * k, 36 * k), 8);
+  }
   ctx.restore();
 }
 function dial(f, cx, cy, r, ang) {
@@ -128,8 +135,14 @@ function scene4(f, dur) {
   ctx.save(); ctx.translate(720, 1280); const s = lerp(1.6, 1, z) * (1 + .03 * prog(f, 0, dur)); ctx.scale(s, s); ctx.translate(-720 + 30 * prog(f, 0, dur), -1280);
   ctx.globalAlpha = clamp(prog(f, 0, 4) * 1.5);
   const flow = -f * 2.5;
+  const glow = S.linkStyle === "glow", LO = { color: S.glow, width: 3, f, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: s }, ports = [];
+  if (glow) {
+    [[8, 1232, 120, 1232, 200, 1008, 308, 1008], [8, 1232, 120, 1232, 160, 1488, 268, 1488], [308, 1008, 450, 900, 600, 1080, 764, 1020]].forEach((P, i) => { FlowLink.draw(ctx, P, 1, { ...LO, done: -i * 9 }); ports.push([P[6], P[7], 1]); });
+    const q = FlowLink.draw(ctx, [764, 1020, 900, 1100, 860, 1700, 956, 1752], easeInOut(prog(f, 4 * k, 14 * k)), { ...LO, done: 14 * k }); if (q) ports.push([956, 1752, q.portA]);
+  } else {
   E.bez([8, 1232, 120, 1232, 200, 1008, 308, 1008], 1, { flow, color: S.colors.line }); E.bez([8, 1232, 120, 1232, 160, 1488, 268, 1488], 1, { flow, color: S.colors.line });
   E.bez([308, 1008, 450, 900, 600, 1080, 764, 1020], 1, { flow, color: S.colors.line }); E.bez([764, 1020, 900, 1100, 860, 1700, 956, 1752], easeOut(prog(f, 4 * k, 14 * k)), { flow, color: S.colors.line });
+  }
   E.cover(im("top"), 0, 632, 648, 348, 10); pill(S.badgeTop, 20, 930, { size: 12 });
   E.cover(im("result"), 784, 848, 512, 360, 10);
   E.cover(im("bottom"), 0, 1500, 608, 360, 10);
@@ -137,7 +150,8 @@ function scene4(f, dur) {
   E.rr(992, 1512, 304, 488, 12); ctx.fillStyle = S.colors.progressCard; ctx.fill();
   if (fin < 1) { ctx.save(); ctx.globalAlpha *= 1 - fin; ctx.fillStyle = S.accent; ctx.font = `500 18px ${E.SANS}`; ctx.textBaseline = "top"; ctx.fillText("◠ " + S.progress, 1012, 1530); ctx.restore(); }
   if (fin > 0) { ctx.save(); ctx.globalAlpha *= fin; E.cover(im("final"), 992, 1512, 304, 488, 12, false); ctx.restore(); }
-  [[8, 1232], [308, 1008], [764, 1020], [268, 1488], [956, 1752]].forEach(([x, y]) => dot(x, y, 1, 8));
+  if (glow) { dot(8, 1232, 1, 8); ports.forEach(([x, y, a]) => FlowLink.port(ctx, x, y, 14, a, S.bg)); }
+  else [[8, 1232], [308, 1008], [764, 1020], [268, 1488], [956, 1752]].forEach(([x, y]) => dot(x, y, 1, 8));
   ctx.restore();
 }
 // 장면 5: 최종 영상 카드가 원근감 있게 다가옴
@@ -156,6 +170,8 @@ E.start({
   images: { "img.input": [{ file: "m3_input.jpg" }], "img.top": [{ file: "m3_street.jpg" }], "img.bottom": [{ file: "m3_lineup.jpg" }], "img.result": [{ file: "m3_crowd.jpg" }], "img.final": [{ file: "m3_skate.jpg" }] },
   sections: [
     { title: "공통", rows: [[{ type: "color", key: "bg", label: "배경색 (모든 장면)" }, { type: "color", key: "colors.grid", label: "배경 점무늬" }],
+        [{ type: "select", key: "linkStyle", label: "연결선 모양", options: [["glow", "파란 빛이 흐르는 선"], ["plain", "흰 점선 (예전)"]] }, { type: "color", key: "glow", label: "빛나는 선 색" }],
+        [{ type: "bool", key: "flowLoop", label: "연결 뒤에도 빛이 계속 흐름" }, { type: "number", key: "flowSec", label: "빛 한 바퀴 (초)", min: .5, max: 8 }],
         [{ type: "color", key: "colors.badgeBg", label: "정보 배지 배경" }, { type: "color", key: "colors.badgeText", label: "정보 배지 글자" }], [{ type: "color", key: "colors.dot", label: "연결 점" }]] },
     { title: "① 노드 연결", durKey: "1", rows: [[{ type: "images", key: "img.input", label: "입력 이미지" }, { type: "images", key: "img.top", label: "결과 1 (위, 장면②에서 크게)" }],
         [{ type: "images", key: "img.bottom", label: "결과 2 (아래)" }], [{ key: "inputCaption", label: "입력 카드 위 문구" }],
