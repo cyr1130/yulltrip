@@ -15,7 +15,7 @@ const S = {
   colors: { bar: "#1c1c1c", text: "#ececec", icon: "#ececec", sparkle: "#2f9bff", hover: "#ffffff", line: "#3a3a3a", pill: "#2a2a2a", pillText: "#ececec" },
   d1: 16, d2: 80, d3: 30, d4: 44,
   // ⑤ 채팅창
-  showChat: true, chatW: 1100, dim: true, chatTitle: "새 채팅",
+  showChat: true, chatW: 920, dim: true, chatTitle: "새 채팅",
   ask1: "Video to prompt 을(를) 사용하여", ask2: "동영상 1... 업스케일 을(를) 분석하세요",
   status: "생각을 정리하는 중...\n모두 종합하는 중...\n모든 것을 정렬하는 중...\n디테일 마무리하는 중...",
   steps: "스킬 사용: 동영상을 프롬프트로\n동영상 분석", thinking: "생각 중...",
@@ -83,7 +83,7 @@ function drawItem(it, hover, active, press, flip) {
 }
 
 // ---------- ⑤ 에이전트 채팅창 (원본 화면 335×705 기준 좌표, u 배로 키움) ----------
-const PW = 335, PHH = 705;
+const PW = 335, PHH = 560;
 function shimmerText(txt, x, y, col, f) {
   ctx.fillStyle = col; ctx.fillText(txt, x, y);
   const w = ctx.measureText(txt).width, ph = ((f % 36) / 36) * (w + 80) - 40;
@@ -97,7 +97,7 @@ function spinner(x, y, r, col, f) {
 }
 function chat(f, s) {
   const e0 = prog(f, s, s + 12); if (e0 <= 0) return;
-  const cc = S.chatColors, u = (+S.chatW || 1100) / PW, ph = PHH * u;
+  const cc = S.chatColors, u = (+S.chatW || 920) / PW, ph = PHH * u;
   if (S.dim && S.keyMode !== "none") { ctx.fillStyle = `rgba(0,0,0,${.6 * easeOut(e0)})`; ctx.fillRect(0, 0, W, H); }
   const sc = lerp(.55, 1, back(e0)), x0 = W / 2 - PW * u / 2, y0 = H / 2 - ph / 2;
   ctx.save(); ctx.globalAlpha = clamp(e0 * 2.5);
@@ -146,19 +146,21 @@ function chat(f, s) {
     const a = prog(f, s + 34 + steps.length * 24 + 10, s + 44 + steps.length * 24 + 10);
     if (a > 0) { ctx.save(); ctx.globalAlpha *= a * (.55 + .35 * Math.sin(f * .2)); ctx.font = `500 10.5px ${E.SANS}`; ctx.fillStyle = "#6a6a6a"; ctx.fillText(S.thinking, 27, y); ctx.restore(); }
   }
-  // 입력창
-  E.rr(5, 547, 325, 93, 12); ctx.fillStyle = cc.input; ctx.fill();
+  // 입력창 (아래 버튼 줄까지 한 상자 안에)
+  const by = PHH - 148, bh = 104, ry = by + bh - 20;
+  E.rr(8, by, 319, bh, 12); ctx.fillStyle = cc.input; ctx.fill();
   ctx.font = `400 10.5px ${E.SANS}`; ctx.fillStyle = "#7a7a7a";
-  const words = Array.from(String(S.placeholder)); let line = "", ly = 567;
-  for (const ch of words) { if (ctx.measureText(line + ch).width > 295) { ctx.fillText(line, 18, ly); line = ch.trim() ? ch : ""; ly += 18; if (ly > 600) break; } else line += ch; }
-  if (ly <= 600) ctx.fillText(line, 18, ly);
-  // 아래 줄
-  I.plus(31, 654, 12, cc.sub, 1.1); U.ico(61, 654, 12, cc.sub, 1.1, c => { c.beginPath(); c.moveTo(-9, -4); c.lineTo(9, -4); c.moveTo(-9, 4); c.lineTo(9, 4); c.stroke(); c.beginPath(); c.arc(3, -4, 2.5, 0, 7); c.fill(); c.beginPath(); c.arc(-3, 4, 2.5, 0, 7); c.fill(); });
-  V.analyze(91, 654, 11, cc.sub, 1.1); I.at(121, 654, 11, cc.sub, 1.1);
-  ctx.font = `500 10px ${E.SANS}`; const mw = ctx.measureText(S.model).width + 32, mx2 = 289 - mw;
-  E.rr(mx2, 642, mw, 24, 7); ctx.fillStyle = "#2c2c2c"; ctx.fill(); ctx.fillStyle = cc.text; ctx.fillText(S.model, mx2 + 9, 654); I.chevron(mx2 + mw - 12, 655, 8, cc.text, 1.1);
-  ctx.beginPath(); ctx.arc(303, 654, 13, 0, 7); ctx.fillStyle = "#ffffff"; ctx.fill(); E.rr(299.5, 650.5, 7, 7, 1.2); ctx.fillStyle = "#111"; ctx.fill();
-  ctx.font = `400 7.5px ${E.SANS}`; ctx.fillStyle = "#555"; ctx.textAlign = "center"; ctx.fillText("AI 생성 콘텐츠", PW / 2, 691); ctx.textAlign = "left";
+  const words = Array.from(String(S.placeholder)); let line = "", ly = by + 20;
+  for (const ch of words) { if (ctx.measureText(line + ch).width > 290) { ctx.fillText(line, 20, ly); line = ch.trim() ? ch : ""; ly += 18; if (ly > by + 40) break; } else line += ch; }
+  if (ly <= by + 40) ctx.fillText(line, 20, ly);
+  // 아래 버튼 줄
+  I.plus(31, ry, 12, cc.sub, 1.1); U.ico(61, ry, 12, cc.sub, 1.1, c => { c.beginPath(); c.moveTo(-9, -4); c.lineTo(9, -4); c.moveTo(-9, 4); c.lineTo(9, 4); c.stroke(); c.beginPath(); c.arc(3, -4, 2.5, 0, 7); c.fill(); c.beginPath(); c.arc(-3, 4, 2.5, 0, 7); c.fill(); });
+  V.analyze(91, ry, 11, cc.sub, 1.1); I.at(121, ry, 11, cc.sub, 1.1);
+  const sx = 306, sr = 12;
+  ctx.font = `500 10px ${E.SANS}`; const mw = ctx.measureText(S.model).width + 32, mx2 = sx - sr - 10 - mw;
+  E.rr(mx2, ry - 12, mw, 24, 7); ctx.fillStyle = "#2c2c2c"; ctx.fill(); ctx.fillStyle = cc.text; ctx.fillText(S.model, mx2 + 9, ry); I.chevron(mx2 + mw - 12, ry + 1, 8, cc.text, 1.1);
+  ctx.beginPath(); ctx.arc(sx, ry, sr, 0, 7); ctx.fillStyle = "#ffffff"; ctx.fill(); E.rr(sx - 3.5, ry - 3.5, 7, 7, 1.2); ctx.fillStyle = "#111"; ctx.fill();
+  ctx.font = `400 7.5px ${E.SANS}`; ctx.fillStyle = "#555"; ctx.textAlign = "center"; ctx.fillText("AI 생성 콘텐츠", PW / 2, PHH - 14); ctx.textAlign = "left";
   ctx.restore();
 }
 
