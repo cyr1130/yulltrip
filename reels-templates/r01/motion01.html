@@ -83,12 +83,12 @@ function canvasScene(f) {
   // 연결선
   if (S.linkStyle === "glow") {
     const pIn = easeInOut(prog(f, 12, 22)), bg = C.canvasBottom, o = { color: S.glow, width: 3, f, done: 22, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: sc };
-    E.el("lines", () => { let pa = 0;
+    let pa = 0; E.el("lines", () => {
       [[848, 512, 836, 800, 846, 960, 874, 1024], [652, 734, 744, 742, 752, 984, 874, 1024], [578, 1240, 618, 1120, 800, 1104, 874, 1024]].forEach(P => { const r = FlowLink.draw(ctx, P, pIn, o); if (r) pa = r.portA; });
       ctx.save(); ctx.strokeStyle = FlowLink.hexA(S.glow, .85); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(874, 1024); ctx.lineTo(892, 1024); ctx.globalAlpha *= pa; ctx.stroke(); ctx.restore();
-      [[848, 512], [652, 734], [578, 1240], [1112, 1318]].forEach(([x, y]) => E.dot(x, y, 1, 9)); FlowLink.port(ctx, 874, 1024, 20, pa, bg); });
+      [[848, 512], [652, 734], [578, 1240], [1112, 1318]].forEach(([x, y]) => FlowLink.port(ctx, x, y, 20, 1, bg)); });
     const lp = easeInOut(prog(f, 20, 28));
-    if (lp > 0) E.el("line_output", () => { const r = FlowLink.draw(ctx, [1112, 1318, 1104, 1468, 760, 1452, 622, 1580], lp, { ...o, done: 28 }); if (r) FlowLink.port(ctx, 622, 1580, 20, r.portA, bg); });
+    if (lp > 0) E.el("line_output", () => { const r = FlowLink.draw(ctx, [1112, 1318, 1104, 1468, 760, 1452, 622, 1580], lp, { ...o, done: 28 }); FlowLink.port(ctx, 1112, 1318, 20, 1, bg); if (r) FlowLink.port(ctx, 622, 1580, 20, r.portA, bg); });
   } else {
   E.el("lines", () => { ctx.save(); ctx.strokeStyle = C.line; ctx.lineWidth = 3; ctx.lineCap = "round";
     [[848, 512, 836, 800, 846, 960, 874, 1024], [652, 734, 744, 742, 752, 984, 874, 1024], [578, 1240, 618, 1120, 800, 1104, 874, 1024]].forEach(p => { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]); ctx.stroke(); });
@@ -116,6 +116,8 @@ function canvasScene(f) {
     E.el("output_shell", () => { E.rr(352, 1604, 534, 716, 14); ctx.fillStyle = "rgba(40,48,46,.55)"; ctx.fill(); });
     if (im > 0) { ctx.globalAlpha *= im; ctx.filter = `blur(${lerp(18, 0, im)}px)`; E.layer("img_output", { kind: "image", key: "images.output", x: 352, y: 1604, w: 534, h: 716 }, () => E.cover((S.images.output[0] || {}).img, 352, 1604, 534, 716, 14, false)); ctx.filter = "none"; }
     ctx.restore(); }
+  // 오른쪽 사진으로 들어가는 + 표시는 사진 위에
+  if (S.linkStyle === "glow" && f >= 12) { const pa = easeOut(prog(easeInOut(prog(f, 12, 22)), .85, 1)); E.el("port_in", () => FlowLink.port(ctx, 874, 1024, 20, pa, C.canvasBottom)); }
   // 버튼 잔상
   const gh = f < 11 ? 0 : .55 * (1 - prog(f, 13, 23));
   if (gh > 0) { ctx.save(); ctx.globalAlpha *= gh; E.el("button_ghost", () => { ctx.filter = "blur(8px)"; const gg = ctx.createRadialGradient(720, 1280, 0, 720, 1280, 125); gg.addColorStop(0, "#3a3d3d"); gg.addColorStop(.6, "#1a1f1f"); gg.addColorStop(1, "rgba(10,20,20,0)"); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(720, 1280, 125, 0, 7); ctx.fill(); ctx.filter = "none"; }); ctx.restore(); }

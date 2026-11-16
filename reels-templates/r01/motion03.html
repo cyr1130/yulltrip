@@ -56,7 +56,7 @@ function scene1(f, dur) {
     const LO = { color: S.glow, width: 3, f, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: s };
     const q1 = FlowLink.draw(ctx, [dx, dy, dx + 60, dy, 960, 980, 1034, 890], easeInOut(prog(f, 22 * k, 32 * k)), { ...LO, done: 32 * k });
     const q2 = FlowLink.draw(ctx, [dx, dy, dx + 70, dy + 40, 960, 1300, 1016, 1395], easeInOut(prog(f, 26 * k, 36 * k)), { ...LO, done: 36 * k });
-    dot(dx, dy, 1, 9); if (q1) FlowLink.port(ctx, 1034, 890, 14, q1.portA, S.bg); if (q2) FlowLink.port(ctx, 1016, 1395, 14, q2.portA, S.bg);
+    FlowLink.port(ctx, dx, dy, 14, 1, S.bg); if (q1) FlowLink.port(ctx, 1034, 890, 14, q1.portA, S.bg); if (q2) FlowLink.port(ctx, 1016, 1395, 14, q2.portA, S.bg);
   } else {
   E.bez([dx, dy, dx + 60, dy, 960, 980, 1034, 890], easeOut(prog(f, 22 * k, 32 * k)), { flow, width: 3, color: S.colors.line });
   E.bez([dx, dy, dx + 70, dy + 40, 960, 1300, 1016, 1395], easeOut(prog(f, 26 * k, 36 * k)), { flow, width: 3, color: S.colors.line });
@@ -150,7 +150,7 @@ function scene4(f, dur) {
   E.rr(992, 1512, 304, 488, 12); ctx.fillStyle = S.colors.progressCard; ctx.fill();
   if (fin < 1) { ctx.save(); ctx.globalAlpha *= 1 - fin; ctx.fillStyle = S.accent; ctx.font = `500 18px ${E.SANS}`; ctx.textBaseline = "top"; ctx.fillText("◠ " + S.progress, 1012, 1530); ctx.restore(); }
   if (fin > 0) { ctx.save(); ctx.globalAlpha *= fin; E.cover(im("final"), 992, 1512, 304, 488, 12, false); ctx.restore(); }
-  if (glow) { dot(8, 1232, 1, 8); ports.forEach(([x, y, a]) => FlowLink.port(ctx, x, y, 14, a, S.bg)); }
+  if (glow) { FlowLink.port(ctx, 8, 1232, 14, 1, S.bg); ports.forEach(([x, y, a]) => FlowLink.port(ctx, x, y, 14, a, S.bg)); }
   else [[8, 1232], [308, 1008], [764, 1020], [268, 1488], [956, 1752]].forEach(([x, y]) => dot(x, y, 1, 8));
   ctx.restore();
 }

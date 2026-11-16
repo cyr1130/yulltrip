@@ -236,7 +236,8 @@ function link(e, p, f, done) {
   const P = pathPts(segs), glow = S.colors.glow, L = .45;
   // 바탕 선 (연결되는 만큼)
   if (strokePart(P, 0, p)) { ctx.strokeStyle = E.hexA(glow, .8); ctx.lineWidth = 1.5 * u; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke(); }
-  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(a[0], a[1], 3 * u, 0, 7); ctx.fill();
+  { const q = P.pts[2], dx = q[0] - a[0], dy = q[1] - a[1], dl = Math.hypot(dx, dy) || 1, key = "s" + Math.round(a[0]) + "," + Math.round(a[1]);
+    if (!PORTS.has(key)) PORTS.set(key, [a[0] + dx / dl * 13 * u, a[1] + dy / dl * 13 * u, 1]); }
   // 연결되는 동안: 끝에 빛 덩어리 / 다 연결된 뒤: 반복해서 흐름
   if (p < 1) pulse(P, p, Math.min(L, p));
   else if (S.flowLoop) { const per = Math.max(.5, +S.flowSec || 2.2) * FPS, ph = (((f - done) / per) % 1 + 1) % 1; pulse(P, ph * (1 + L), L); }

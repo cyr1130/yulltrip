@@ -105,10 +105,11 @@ function group(f) {
   E.wrap(shown, -524, 1078, 484, 36, `30px ${E.SANS}`, `30px ${E.SANS}`); ctx.restore();
   E.rr(-130, 1386, 96, 96, 24); ctx.fillStyle = S.colors.genBtn; ctx.fill();
   E.symbol(S.genIcon, S.img.genIcon, -82, 1433, 46, S.colors.genIconColor);
-  E.dot(28, 1278);
+  if (S.linkStyle !== "glow") E.dot(28, 1278);
   const glow = S.linkStyle === "glow", LO = { color: S.glow, width: 4, f, fps: FPS, loop: S.flowLoop, sec: S.flowSec, scale: .42 };
   const lp = glow ? easeInOut(prog(f, 8, 15)) : easeOut(prog(f, 8, 15));
-  if (glow) rows.forEach(r => { const q = FlowLink.draw(ctx, [28, 1278, 80, lerp(1278, r.y, .3), 96, r.y, 135, r.y], lp, { ...LO, done: 15 }); if (q) FlowLink.port(ctx, 147, r.y, 14, q.portA, S.bg); });
+  if (glow) rows.forEach(r => { const q = FlowLink.draw(ctx, [28, 1278, 80, lerp(1278, r.y, .3), 110, r.y, 151, r.y], lp, { ...LO, done: 15 }); if (q) FlowLink.port(ctx, 165, r.y, 14, q.portA, S.bg); });
+  if (glow) FlowLink.port(ctx, 28, 1278, 14, 1, S.bg);
   else rows.forEach(r => { E.bez([28, 1278, 80, lerp(1278, r.y, .3), 96, r.y, 159, r.y], lp, { color: S.colors.line }); E.dot(159, r.y, prog(f, 13, 15)); });
   nodes.forEach((nd, i) => {
     const p = prog(f, 12 + i * 2, 17 + i * 2); if (p <= 0) return;
@@ -117,7 +118,7 @@ function group(f) {
     E.label(nd.o.label, nd.x, nd.y - 29, S.colors.label); E.cover(nd.o.img, nd.x, nd.y, nd.w, nd.h, 10); ctx.restore();
   });
   const rp = glow ? easeInOut(prog(f, 20, 26)) : easeOut(prog(f, 20, 26));
-  if (glow) { let pa = 0; rows.forEach(r => { E.dot(r.right + 24, r.y, prog(f, 18, 20)); const q = FlowLink.draw(ctx, [r.right + 24, r.y, r.right + 100, r.y + (1278 - r.y) * .1, 840, lerp(r.y, 1278, .6), 866, 1278], rp, { ...LO, done: 26 }); if (q) pa = q.portA; }); FlowLink.port(ctx, 880, 1278, 14, pa, S.bg); }
+  if (glow) { let pa = 0; rows.forEach(r => { const q = FlowLink.draw(ctx, [r.right + 24, r.y, r.right + 100, r.y + (1278 - r.y) * .1, 858, lerp(r.y, 1278, .6), 883, 1278], rp, { ...LO, done: 26 }); if (q) pa = q.portA; }); FlowLink.port(ctx, 897, 1278, 14, pa, S.bg); rows.forEach(r => FlowLink.port(ctx, r.right + 24, r.y, 14, prog(f, 18, 20), S.bg)); }
   else rows.forEach(r => { E.dot(r.right + 24, r.y, prog(f, 18, 20)); E.bez([r.right + 24, r.y, r.right + 100, r.y + (1278 - r.y) * .1, 862, lerp(r.y, 1278, .6), 888, 1278], rp, { color: S.colors.line }); });
   if (!glow) E.dot(888, 1278, prog(f, 24, 26));
   const o = easeOut(prog(f, 24, 31));
