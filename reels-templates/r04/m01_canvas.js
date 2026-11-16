@@ -28,6 +28,13 @@ const T = () => { const a = +S.d1, b = +S.d2, c = S.showGen ? +S.d3 : 8, d = +S.
 // ---------- 배치 ----------
 const u = 1.6, LEFT = 80, RIGHT = 1360, CW = RIGHT - LEFT, GAP = 20, VGAP = 98;
 const SINGLE = { w: 780, h: 332 }, RESULT = { w: 700, h: 394 }, MULTI_H = 460;
+// 결과 노드는 넣은 영상·이미지의 원본 비율 그대로 (면적은 기본 크기와 비슷하게, 너무 크지 않게)
+function resultSize(img, base, maxW, maxH) {
+  const iw = img && (img.naturalWidth || img.videoWidth || img.width), ih = img && (img.naturalHeight || img.videoHeight || img.height);
+  if (!iw || !ih) return base;
+  const ar = iw / ih, area = base.w * base.h; let w = Math.sqrt(area * ar), h = w / ar;
+  const k = Math.min(1, maxW / w, maxH / h); return { w: w * k, h: h * k };
+}
 function imgs(k) { const l = S.img["s" + (k + 1)]; return Array.isArray(l) ? l.filter(o => o && o.img).slice(0, MAXN) : []; }
 function names(k) { return String(S.sec[k].names || "").split("\n").map(s => s.trim()); }
 let LAY = null;
@@ -39,7 +46,7 @@ function layout() {
   vis.forEach(k => {
     const list = imgs(k), n = list.length, nm = names(k), isRes = k === resultK && vis.length > 1, sec = { k, nodes: [], isRes };
     if (n === 1) {
-      const sz = isRes ? RESULT : SINGLE, x = isRes ? (LEFT + RIGHT) / 2 - sz.w / 2 : (singleIdx++ % 2 ? RIGHT - sz.w : LEFT);
+      const sz = isRes ? resultSize(list[0].img, RESULT, 1200, 1000) : SINGLE, x = isRes ? (LEFT + RIGHT) / 2 - sz.w / 2 : (singleIdx++ % 2 ? RIGHT - sz.w : LEFT);
       sec.nodes.push({ k, i: 0, x, y, w: sz.w, h: sz.h }); y += sz.h + VGAP;
     } else {
       const w = (CW - GAP * (n - 1)) / n, h = Math.min(MULTI_H, w * 1.5);
@@ -77,7 +84,7 @@ function layoutH() {
   const resultK = vis.length ? vis[vis.length - 1] : -1;
   vis.forEach(k => {
     const list = imgs(k), n = list.length, nm = names(k), isRes = k === resultK && vis.length > 1, sec = { k, nodes: [], isRes };
-    if (n === 1) { const sz = isRes ? RESULT_H : SINGLE_H; sec.nodes.push({ k, i: 0, x, y: -sz.h / 2, w: sz.w, h: sz.h }); x += sz.w + HGAP; }
+    if (n === 1) { const sz = isRes ? resultSize(list[0].img, RESULT_H, 1000, 900) : SINGLE_H; sec.nodes.push({ k, i: 0, x, y: -sz.h / 2, w: sz.w, h: sz.h }); x += sz.w + HGAP; }
     else {
       const h = Math.min(380, (1740 - (n - 1) * RGAP) / n), w = h * .8, tot = n * h + (n - 1) * RGAP;
       for (let i = 0; i < n; i++) sec.nodes.push({ k, i, x, y: -tot / 2 + i * (h + RGAP), w, h });
