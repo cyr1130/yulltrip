@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 03</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf, kf2 } = E;
+
+const S = {
+  accent: "#d6ff1e", bg: "#141619",
+  genLabel: "Image Generation", inputLabel: "Main Character", listIcon: "✦",
+  colors: { card: "#232528", label: "#6f7472", caption: "#e6e6e6", line: "#e8e8e8", dial: "#ffffff",
+            badgeBg: "#141416", badgeText: "#f2f2f2", dot: "#ffffff", grid: "#ffffff", listIconBg: "#2c2e31", settingBox: "#ffffff", panelBorder: "#ffffff",
+            listBg: "#181a1c", listTitle: "#9a9a9a", listText: "#cfcfcf", listSel: "#ffffff", progressCard: "#1c1e21",
+            panelBg: "#1c2020", panelLabel: "#cfcfcf", panelValue: "#ffffff" },
+  img: { input: [], top: [], bottom: [], result: [], final: [], listIcon: [] },
+  inputCaption: "Denim crop + mesh midriff, baggy black cargo",
+  badgeTop: "Cinema Studio 3.5 | 16:9 | 4K", badgeBottom: "GPT Image | 16:9 | 4K",
+  listTitle: "Featured models", models: "Cinematic Cameras\nGPT Image 2\nSeedream 5.0 Lite\nSeedream 4.5\nNano Banana 2\nNano Banana Pro\nGrok Image", pick: 1,
+  progress: "In progress",
+  settings: "CAMERA: Classic 16mm Film\nLENS: Compact Anamorphic\nFOCAL LENGTH: 35 > 50 MM\nAPERTURE: f/4.0 > f/1.4",
+  d1: 60, d2: 58, d3: 42, d4: 36, d5: 34,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3, d = +S.d4, e = +S.d5; return { s1: 0, s2: a, s3: a + b, s4: a + b + c, s5: a + b + c + d, total: a + b + c + d + e }; };
+const im = k => (S.img[k][0] || {}).img;
+const pill = (text, x, y, opt = {}) => E.pill(text, x, y, { ...opt, bg: E.hexA(S.colors.badgeBg, .78), color: S.colors.badgeText });
+const dot = (x, y, a = 1, r = 11) => { if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = S.colors.dot; ctx.fill(); ctx.restore(); };
+
+function bg() { ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H); const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, "rgba(255,255,255,.03)"); g.addColorStop(1, "rgba(0,0,0,.15)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); E.dotGrid(E.hexA(S.colors.grid, .025)); }
+function placeholder(x, y, w, h, badge, imgKey, appear) {
+  E.label(S.genLabel, x + 6, y - 26, S.colors.label, 15);
+  E.shadowed(() => { E.rr(x, y, w, h, 12); const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, S.colors.card); g.addColorStop(1, S.colors.card); ctx.fillStyle = g; ctx.fill(); }, 30, 12, "rgba(0,0,0,.45)");
+  if (appear > 0) { ctx.save(); ctx.globalAlpha = appear; ctx.filter = `blur(${lerp(14, 0, appear)}px)`; E.cover(im(imgKey), x, y, w, h, 12, false); ctx.restore(); }
+  pill(badge, x + w * .38, y + h - 40, { size: 13 });
+}
+
+// 장면 1: 작은 노드 → 확대되며 결과가 채워짐
+function scene1(f, dur) {
+  const k = dur / 60;
+  const z = easeInOut(prog(f, 20 * k, 40 * k));
+  const s = lerp(1, 1.95, z) * (1 + .03 * prog(f, 40 * k, dur));
+  const fx = lerp(860, 1070, z), fy = lerp(1150, 1055, z);
+  ctx.save(); ctx.translate(720, 1280); ctx.rotate(lerp(0, -2.5, z) * Math.PI / 180); ctx.transform(1, lerp(0, -.04, z), 0, 1, 0, 0); ctx.scale(s, s); ctx.translate(-fx, -fy);
+  const ap1 = easeOut(prog(f, 26 * k, 34 * k)), ap2 = easeOut(prog(f, 31 * k, 39 * k));
+  placeholder(780, 540, 508, 350, S.badgeTop, "top", ap1);
+  placeholder(744, 1395, 544, 350, S.badgeBottom, "bottom", ap2);
+  // 입력 카드
+  E.label(S.inputLabel, 474, 934, S.colors.label, 15);
+  E.cover(im("input"), 468, 960, 340, 340, 10);
+  if (S.inputCaption) { ctx.save(); ctx.font = `14px ${E.SANS}`; ctx.fillStyle = S.colors.caption; ctx.textBaseline = "top"; ctx.fillText(S.inputCaption.slice(0, Math.round(S.inputCaption.length * prog(f, 8 * k, 26 * k))), 482, 972); ctx.restore(); }
+  // 출력 점 → 점선 연결
+  const dx = 828, dy = 1130;
+  const flow = -f * 2.5;
+  E.bez([dx, dy, dx + 60, dy, 960, 980, 1034, 890], easeOut(prog(f, 22 * k, 32 * k)), { flow, width: 3, color: S.colors.line });
+  E.bez([dx, dy, dx + 70, dy + 40, 960, 1300, 1016, 1395], easeOut(prog(f, 26 * k, 36 * k)), { flow, width: 3, color: S.colors.line });
+  dot(dx, dy, 1, 9); dot(1034, 890, prog(f, 30 * k, 32 * k), 8); dot(1016, 1395, prog(f, 34 * k, 36 * k), 8);
+  ctx.restore();
+}
+function dial(f, cx, cy, r, ang) {
+  ctx.save(); ctx.translate(cx, cy); ctx.strokeStyle = S.colors.dial; ctx.lineWidth = 9; ctx.setLineDash([46, 30]); ctx.lineDashOffset = ang * 3;
+  ctx.beginPath(); ctx.arc(0, 0, r, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke(); ctx.setLineDash([]);
+  const a = -Math.PI / 2 + ang * Math.PI / 180; ctx.beginPath(); ctx.arc(r * Math.cos(a), r * Math.sin(a), 30, 0, 7); ctx.fillStyle = S.colors.dial; ctx.shadowColor = E.hexA(S.colors.dial, .6); ctx.shadowBlur = 20; ctx.fill(); ctx.restore();
+}
+// 장면 2: 풀스크린 이미지 → 흐려지며 모델 목록
+function scene2(f, dur) {
+  const k = dur / 58, ent = easeOut(prog(f, 0, 7));
+  ctx.save(); ctx.globalAlpha = ent;
+  const sc = lerp(.82, 1, ent) * (1 + .02 * prog(f, 0, dur));
+  ctx.translate(720, 860); ctx.scale(sc, sc); ctx.translate(-720, -860);
+  const blur = easeInOut(prog(f, 16 * k, 24 * k));
+  ctx.save(); E.rr(0, 0, W, 1720, 0); ctx.clip(); ctx.filter = blur > 0 ? `blur(${30 * blur}px)` : "none"; E.cover(im("top"), -20, -20, W + 40, 1760, 0, false); ctx.restore();
+  pill(S.badgeTop, 300, 1520, { size: 34 });
+  ctx.restore();
+  dial(f, 720, 2600, 780, kf(f, [[0, 22], [16 * k, 22], [30 * k, 6], [44 * k, -4], [dur, -2]]));
+  // 모델 목록
+  const lp = easeOut(prog(f, 18 * k, 26 * k));
+  if (lp > 0) {
+    const items = S.models.split("\n").filter(Boolean).slice(0, 8), x = 230, y = 760, w = 600, rowH = 108, h = 90 + items.length * rowH;
+    ctx.save(); ctx.globalAlpha = lp; ctx.translate(x, y + lerp(40, 0, lp));
+    E.shadowed(() => { E.rr(0, 0, w, h, 28); ctx.fillStyle = E.hexA(S.colors.listBg, .92); ctx.fill(); }, 50, 20, "rgba(0,0,0,.5)");
+    E.symbol(S.listIcon, S.img.listIcon, 46, 50, 28, S.colors.listTitle);
+    ctx.fillStyle = S.colors.listTitle; ctx.font = `500 26px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText(S.listTitle, 74, 50);
+    const sel = kf(f, [[0, 0], [28 * k, 0], [36 * k, Math.min(items.length - 1, +S.pick + 1)], [46 * k, +S.pick]]);
+    E.rr(14, 90 + sel * rowH, w - 28, rowH - 12, 20); ctx.strokeStyle = S.accent; ctx.lineWidth = 4; ctx.shadowColor = S.accent; ctx.shadowBlur = 16; ctx.stroke(); ctx.shadowBlur = 0;
+    items.forEach((it, i) => { const yy = 90 + i * rowH + (rowH - 12) / 2; ctx.globalAlpha = lp * clamp(prog(f, 18 * k + i, 22 * k + i) * 1.5);
+      E.rr(34, yy - 22, 44, 44, 10); ctx.fillStyle = S.colors.listIconBg; ctx.fill(); ctx.fillStyle = Math.abs(sel - i) < .5 ? S.colors.listSel : S.colors.listText; ctx.font = `500 32px ${E.SANS}`; ctx.fillText(it, 100, yy); });
+    ctx.restore();
+  }
+}
+// 장면 3: 생성 중 → 결과 → 카메라 설정 패널
+function scene3(f, dur) {
+  const k = dur / 42;
+  const rev = easeOut(prog(f, 8 * k, 16 * k));
+  const y0 = kf(f, [[0, 400], [10 * k, 380], [dur, 290]]), hh = 1270;
+  E.shadowed(() => { E.rr(0, y0, W, hh, 0); ctx.fillStyle = S.colors.progressCard; ctx.fill(); }, 40, 14);
+  if (rev < 1) { ctx.save(); ctx.globalAlpha = 1 - rev; const sp = f / 3; ctx.translate(560, y0 + 120); ctx.strokeStyle = S.accent; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, 0, 16, sp, sp + 4); ctx.stroke();
+    ctx.fillStyle = S.accent; ctx.font = `500 44px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText(S.progress, 40, 0); ctx.restore(); }
+  if (rev > 0) { ctx.save(); ctx.globalAlpha = rev; ctx.filter = `blur(${lerp(20, 0, rev)}px)`; E.cover(im("result"), 0, y0, W, hh, 0, false); ctx.restore(); }
+  pill(S.badgeTop, 240, y0 + hh - 110, { size: 34 });
+  // 설정 패널
+  const sp = easeOut(prog(f, 18 * k, 27 * k));
+  if (sp > 0) {
+    const rows = S.settings.split("\n").filter(Boolean).slice(0, 4).map(r => { const [a, ...b] = r.split(":"); return [a.trim(), b.join(":").trim()]; });
+    const px = 136, py = y0 + 610, pw = 1040, ph = 400, cw = (pw - 60) / rows.length;
+    ctx.save(); ctx.globalAlpha = sp; ctx.translate(0, lerp(50, 0, sp));
+    E.rr(px, py, pw, ph, 36); ctx.fillStyle = E.hexA(S.colors.panelBg, .84); ctx.fill(); ctx.strokeStyle = E.hexA(S.colors.panelBorder, .12); ctx.lineWidth = 2; ctx.stroke();
+    const vt = easeInOut(prog(f, 27 * k, 35 * k));
+    rows.forEach(([lab, val], i) => {
+      const x = px + 30 + i * cw;
+      ctx.fillStyle = S.colors.panelLabel; ctx.font = `500 22px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(lab, x + cw / 2, py + 52);
+      E.rr(x + 10, py + 90, cw - 20, cw - 20, 26); ctx.fillStyle = E.hexA(S.colors.settingBox, .07); ctx.fill();
+      let shown = val, m = null;
+      if (val.includes(">")) { const [L, R] = val.split(">").map(x => x.trim()), nl = L.match(/[\d.]+/), nr = R.match(/[\d.]+/);
+        if (nl && nr) { m = 1; const dec = (nr[0].split(".")[1] || "").length; shown = R.replace(nr[0], lerp(+nl[0], +nr[0], vt).toFixed(dec)); } else shown = vt < .5 ? L : R; }
+      const big = m || shown.length <= 8;
+      ctx.fillStyle = S.colors.panelValue; ctx.font = big ? `600 54px ${E.SANS}` : `500 24px ${E.SANS}`;
+      const parts = big ? [shown] : E.ctx.measureText(shown).width > cw - 40 ? shown.split(" ").reduce((acc, w) => { const l = acc[acc.length - 1]; if (l && ctx.measureText(l + " " + w).width < cw - 40) acc[acc.length - 1] = l + " " + w; else acc.push(w); return acc; }, []) : [shown];
+      parts.forEach((p, j) => ctx.fillText(p, x + cw / 2, py + 90 + (cw - 20) / 2 + (j - (parts.length - 1) / 2) * 30));
+      ctx.textAlign = "left";
+    });
+    ctx.restore();
+  }
+}
+// 장면 4: 줌아웃 노드 개요
+function scene4(f, dur) {
+  const k = dur / 36, z = easeOut(prog(f, 0, 9 * k));
+  ctx.save(); ctx.translate(720, 1280); const s = lerp(1.6, 1, z) * (1 + .03 * prog(f, 0, dur)); ctx.scale(s, s); ctx.translate(-720 + 30 * prog(f, 0, dur), -1280);
+  ctx.globalAlpha = clamp(prog(f, 0, 4) * 1.5);
+  const flow = -f * 2.5;
+  E.bez([8, 1232, 120, 1232, 200, 1008, 308, 1008], 1, { flow, color: S.colors.line }); E.bez([8, 1232, 120, 1232, 160, 1488, 268, 1488], 1, { flow, color: S.colors.line });
+  E.bez([308, 1008, 450, 900, 600, 1080, 764, 1020], 1, { flow, color: S.colors.line }); E.bez([764, 1020, 900, 1100, 860, 1700, 956, 1752], easeOut(prog(f, 4 * k, 14 * k)), { flow, color: S.colors.line });
+  E.cover(im("top"), 0, 632, 648, 348, 10); pill(S.badgeTop, 20, 930, { size: 12 });
+  E.cover(im("result"), 784, 848, 512, 360, 10);
+  E.cover(im("bottom"), 0, 1500, 608, 360, 10);
+  const fin = easeOut(prog(f, 16 * k, 26 * k));
+  E.rr(992, 1512, 304, 488, 12); ctx.fillStyle = S.colors.progressCard; ctx.fill();
+  if (fin < 1) { ctx.save(); ctx.globalAlpha *= 1 - fin; ctx.fillStyle = S.accent; ctx.font = `500 18px ${E.SANS}`; ctx.textBaseline = "top"; ctx.fillText("◠ " + S.progress, 1012, 1530); ctx.restore(); }
+  if (fin > 0) { ctx.save(); ctx.globalAlpha *= fin; E.cover(im("final"), 992, 1512, 304, 488, 12, false); ctx.restore(); }
+  [[8, 1232], [308, 1008], [764, 1020], [268, 1488], [956, 1752]].forEach(([x, y]) => dot(x, y, 1, 8));
+  ctx.restore();
+}
+// 장면 5: 최종 영상 카드가 원근감 있게 다가옴
+function scene5(f, dur) {
+  const k = dur / 34, e = easeOut(prog(f, 0, 10 * k));
+  ctx.save(); ctx.translate(720, 1100); const s = lerp(.7, 1.0, e) * (1 + .06 * prog(f, 0, dur)); ctx.scale(s, s);
+  ctx.transform(1, lerp(-.12, -.05, e), 0, 1, 0, 0); ctx.translate(lerp(500, 0, e), 0); ctx.globalAlpha = clamp(e * 2);
+  E.cover(im("final"), -620, -400, 1240, 760, 14);
+  dot(-680, 0, 1, 12);
+  ctx.restore();
+}
+
+E.start({
+  title: "모션 03 · 노드 → 풀스크린 → 모델 선택 → 설정 → 결과", group: "릴스01 템플릿", file: "motion03", state: S,
+  intro: "노드에서 결과 이미지가 생기고, 화면 가득 커진 뒤 모델 목록·카메라 설정을 보여주고, 최종 영상으로 끝나요.",
+  images: { "img.input": [{ file: "m3_input.jpg" }], "img.top": [{ file: "m3_street.jpg" }], "img.bottom": [{ file: "m3_lineup.jpg" }], "img.result": [{ file: "m3_crowd.jpg" }], "img.final": [{ file: "m3_skate.jpg" }] },
+  sections: [
+    { title: "공통", rows: [[{ type: "color", key: "bg", label: "배경색 (모든 장면)" }, { type: "color", key: "colors.grid", label: "배경 점무늬" }],
+        [{ type: "color", key: "colors.badgeBg", label: "정보 배지 배경" }, { type: "color", key: "colors.badgeText", label: "정보 배지 글자" }], [{ type: "color", key: "colors.dot", label: "연결 점" }]] },
+    { title: "① 노드 연결", durKey: "1", rows: [[{ type: "images", key: "img.input", label: "입력 이미지" }, { type: "images", key: "img.top", label: "결과 1 (위, 장면②에서 크게)" }],
+        [{ type: "images", key: "img.bottom", label: "결과 2 (아래)" }], [{ key: "inputCaption", label: "입력 카드 위 문구" }],
+        [{ key: "inputLabel", label: "입력 카드 라벨" }, { key: "genLabel", label: "결과 카드 라벨" }],
+        [{ key: "badgeTop", label: "결과 1 배지 (| 로 구분)" }, { key: "badgeBottom", label: "결과 2 배지" }], [{ type: "number", key: "d1", label: "길이 (프레임)", min: 30, max: 200 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.card", label: "빈 결과 카드" }, { type: "color", key: "colors.label", label: "카드 라벨 글자" }], [{ type: "color", key: "colors.caption", label: "입력 카드 문구" }, { type: "color", key: "colors.line", label: "점선 연결" }]] },
+    { title: "② 풀스크린 + 모델 선택", durKey: "2", rows: [[{ key: "listTitle", label: "목록 제목" }, { type: "number", key: "pick", label: "최종 선택 줄 (0부터)", min: 0, max: 7 }],
+        [{ type: "textarea", key: "models", label: "목록 항목 (한 줄에 하나, 최대 8개)" }], [{ type: "number", key: "d2", label: "길이 (프레임)", min: 30, max: 200 }],
+        [{ type: "sub", label: "목록 제목 앞 기호" }], [{ key: "listIcon", label: "기호 (기본 ✦)" }, { type: "images", key: "img.listIcon", label: "기호 이미지 (있으면 우선)" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.listBg", label: "목록 배경" }, { type: "color", key: "colors.listTitle", label: "목록 제목" }], [{ type: "color", key: "colors.listText", label: "목록 글자" }, { type: "color", key: "colors.listSel", label: "선택된 글자" }], [{ type: "color", key: "accent", label: "선택 테두리 (③ 생성 중 글자와 같음)" }, { type: "color", key: "colors.dial", label: "아래 다이얼" }], [{ type: "color", key: "colors.listIconBg", label: "목록 항목 앞 네모" }]] },
+    { title: "③ 생성 중 → 결과 + 설정", durKey: "3", rows: [[{ type: "images", key: "img.result", label: "결과 이미지" }, { key: "progress", label: "생성 중 문구" }],
+        [{ type: "textarea", key: "settings", label: "설정 4칸 (이름: 값, 숫자 A > B 는 바뀌는 숫자)" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 24, max: 200 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.progressCard", label: "생성 중 카드" }, { type: "color", key: "accent", label: "생성 중 글자 (② 선택 테두리와 같음)" }], [{ type: "color", key: "colors.panelBg", label: "설정 패널" }, { type: "color", key: "colors.panelLabel", label: "설정 이름 글자" }], [{ type: "color", key: "colors.panelValue", label: "설정 값 글자" }, { type: "color", key: "colors.settingBox", label: "설정 칸 (옅게)" }], [{ type: "color", key: "colors.panelBorder", label: "설정 패널 테두리 (옅게)" }]] },
+    { title: "④ 줌아웃 노드", durKey: "4", rows: [[{ type: "number", key: "d4", label: "길이 (프레임)", min: 20, max: 200 }], [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.line", label: "점선 연결 (①과 같음)" }, { type: "color", key: "colors.progressCard", label: "생성 중 카드 (③과 같음)" }]] },
+    { title: "⑤ 최종 영상", durKey: "5", rows: [[{ type: "images", key: "img.final", label: "최종 이미지 (가로형 추천)" }, { type: "number", key: "d5", label: "길이 (프레임)", min: 20, max: 200 }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => +S.d4, 5: S => +S.d5 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(); bg();
+    if (f < t.s2) scene1(f, +S.d1);
+    else if (f < t.s3) scene2(f - t.s2, +S.d2);
+    else if (f < t.s4) scene3(f - t.s3, +S.d3);
+    else if (f < t.s5) scene4(f - t.s4, +S.d4);
+    else scene5(f - t.s5, +S.d5);
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

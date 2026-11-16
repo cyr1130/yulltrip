@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 05</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script>window.CANVAS_SIZE = [2560, 1440];</script>
+<script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#f2f2f0", keyBg: "#00ff00",
+  style: "assemble", size: 520, showTitle: true, title: "Figma", sub: "Design together", exit: false,
+  colors: { card: "#ffffff", border: "#d9d9d9", red: "#f24e1e", orange: "#ff7262", purple: "#a259ff", blue: "#1abcfe", green: "#0acf83", title: "#111111", sub: "#6b6b6b" },
+  d1: 30, d2: 20, d3: 40, d4: 12,
+};
+const T = () => { const a = +S.d1, b = S.showTitle ? +S.d2 : 0, c = +S.d3, d = S.exit ? +S.d4 : 0; return { s2: a, s3: a + b, s4: a + b + c, total: a + b + c + d + 1 }; };
+
+// 피그마 로고 도형 5개 (단위 u, 로고 왼쪽 위 기준)
+const SHAPES = [
+  { k: "red", x: 0, y: 0, r: [.5, 0, 0, .5], from: [-1.6, -1.2, -.6] },
+  { k: "orange", x: 1, y: 0, r: [0, .5, .5, 0], from: [1.6, -1.2, .6] },
+  { k: "purple", x: 0, y: 1, r: [.5, 0, 0, .5], from: [-2, 0, -.4] },
+  { k: "blue", x: 1, y: 1, circle: 1, from: [2, 0, 0] },
+  { k: "green", x: 0, y: 2, r: [.5, 0, .5, .5], from: [-.4, 1.8, .5] },
+];
+function shape(o, u, p) {
+  if (p <= 0) return; const cx = (o.x + .5) * u, cy = (o.y + .5) * u;
+  const dx = o.from[0] * u * (1 - p), dy = o.from[1] * u * (1 - p), rot = o.from[2] * (1 - p), sc = S.style === "assemble" ? lerp(.4, 1, p) : 1;
+  ctx.save(); ctx.globalAlpha *= clamp(p * 2.5); ctx.translate(cx + dx, cy + dy); ctx.rotate(rot); ctx.scale(sc, sc);
+  ctx.beginPath(); if (o.circle) ctx.arc(0, 0, u / 2, 0, 7); else ctx.roundRect(-u / 2, -u / 2, u, u, o.r.map(v => v * u));
+  ctx.fillStyle = S.colors[o.k]; ctx.fill(); ctx.restore();
+}
+function icon(f, t, sz) {
+  const r = sz * .225, u = sz * .58 / 3;
+  // 카드
+  let cp = 1;
+  if (S.style === "assemble") cp = back(prog(f, 0, 12));
+  const sc = lerp(.2, 1, cp);
+  ctx.save(); ctx.scale(sc, sc); ctx.globalAlpha *= clamp(cp * 2);
+  const card = () => { E.rr(-sz / 2, -sz / 2, sz, sz, r); ctx.fillStyle = S.colors.card; ctx.fill(); };
+  if (!U.green(S)) E.shadowed(card, sz * .1, sz * .04, "rgba(0,0,0,.22)"); else card();
+  E.rr(-sz / 2, -sz / 2, sz, sz, r); ctx.strokeStyle = S.colors.border; ctx.lineWidth = Math.max(2, sz * .006); ctx.stroke();
+  ctx.translate(-u, -1.5 * u);
+  SHAPES.forEach((o, i) => {
+    const p = S.style === "assemble" ? easeOut(prog(f, 8 + i * 3.5, 20 + i * 3.5)) : 1;
+    shape(o, u, p);
+  });
+  ctx.restore();
+}
+
+E.start({
+  title: "모션 05 · 피그마 아이콘 등장 (가로 16:9)", group: "릴스04 템플릿", file: "motion05_16x9", state: S, alpha: true,
+  intro: "가로 16:9 (2560×1440) 화면. 피그마 앱 아이콘이 등장하고, 원하면 옆으로 비켜서며 이름과 부제가 나와요. 등장 방식은 도형 조립 / 팝업 / 독 바운스 중에서 골라요.",
+  sections: [
+    { title: "공통", hint: "배경 방식에서 '투명'을 고르고 '투명 배경 내보내기'를 누르면 배경 없는 WebM 으로 저장돼요.",
+      rows: [[{ type: "select", key: "keyMode", label: "배경 방식", options: [["solid", "단색 배경"], ["green", "크로마키 (그림자 없음)"], ["none", "투명"]] }],
+        [{ type: "color", key: "bg", label: "단색 배경색" }, { type: "color", key: "keyBg", label: "크로마키 색" }],
+        [{ type: "number", key: "size", label: "아이콘 크기 (px)", min: 120, max: 1200 }]] },
+    { title: "① 아이콘 등장", durKey: "1",
+      rows: [[{ type: "select", key: "style", label: "등장 방식", options: [["assemble", "도형 조립 (카드 뜨고 도형이 날아와 맞춰짐)"], ["pop", "팝업 (통째로 톡)"], ["dock", "독 바운스 (맥 앱 실행처럼 통통)"]] }],
+        [{ type: "number", key: "d1", label: "길이 (프레임)", min: 10, max: 120 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.card", label: "카드" }, { type: "color", key: "colors.border", label: "카드 테두리" }],
+        [{ type: "color", key: "colors.red", label: "빨강" }, { type: "color", key: "colors.orange", label: "주황" }],
+        [{ type: "color", key: "colors.purple", label: "보라" }, { type: "color", key: "colors.blue", label: "파랑" }],
+        [{ type: "color", key: "colors.green", label: "초록" }]] },
+    { title: "② 이름 + 부제", durKey: "2",
+      rows: [[{ type: "bool", key: "showTitle", label: "이름 보이기 (아이콘이 왼쪽으로 비켜섬)" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 6, max: 90 }],
+        [{ key: "title", label: "이름" }, { key: "sub", label: "부제 (비우면 없음)" }],
+        [{ type: "color", key: "colors.title", label: "이름 색" }, { type: "color", key: "colors.sub", label: "부제 색" }]] },
+    { title: "③ 머무름 + 퇴장", durKey: "3",
+      rows: [[{ type: "number", key: "d3", label: "머무름 (프레임)", min: 4, max: 240 }],
+        [{ type: "bool", key: "exit", label: "끝에 작아지며 사라지기" }, { type: "number", key: "d4", label: "퇴장 길이 (프레임)", min: 4, max: 60 }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => S.showTitle ? +S.d2 : 0, 3: S => +S.d3 + (S.exit ? +S.d4 : 0) },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(), sz = +S.size || 520;
+    if (S.keyMode !== "none") { ctx.fillStyle = U.green(S) ? S.keyBg : S.bg; ctx.fillRect(0, 0, W, H); }
+    // 이름 자리 계산 → 아이콘이 왼쪽으로 비켜섬
+    const TFS = sz * .42, SFS = sz * .13, gap = sz * .22;
+    ctx.font = `700 ${TFS}px ${E.SANS}`; const tw = ctx.measureText(S.title).width; ctx.font = `500 ${SFS}px ${E.SANS}`; const sw = S.sub ? ctx.measureText(S.sub).width : 0;
+    const blockW = sz + gap + Math.max(tw, sw), tp = S.showTitle ? easeInOut(prog(f, t.s2, t.s2 + +S.d2 * .8)) : 0;
+    const iconX = lerp(W / 2, W / 2 - blockW / 2 + sz / 2, tp), cy = H / 2;
+    const ex = S.exit ? easeIn(prog(f, t.s4, t.s4 + +S.d4)) : 0;
+    ctx.save(); ctx.globalAlpha = 1 - ex; ctx.translate(W / 2, cy); ctx.scale(1 - .25 * ex, 1 - .25 * ex); ctx.translate(-W / 2, -cy);
+    // 아이콘
+    ctx.save(); ctx.translate(iconX, cy);
+    if (S.style === "pop") { const p = prog(f, 0, 14); const s = back(p); ctx.globalAlpha *= clamp(p * 3); ctx.scale(lerp(.1, 1, s), lerp(.1, 1, s)); }
+    if (S.style === "dock") { const d = +S.d1, p = prog(f, 0, d), hop = sz * .55;
+      // 아래에서 올라와 두 번 통통 튐
+      const rise = easeOut(prog(p, 0, .25)), b1 = Math.sin(Math.PI * prog(p, .25, .55)), b2 = Math.sin(Math.PI * prog(p, .55, .8)) * .45;
+      ctx.translate(0, lerp(H * .45, 0, rise) - (b1 + b2) * hop * (rise >= 1 ? 1 : 0)); ctx.globalAlpha *= clamp(rise * 3);
+      const squash = Math.max(0, Math.sin(Math.PI * prog(p, .53, .6)), Math.sin(Math.PI * prog(p, .78, .84)) * .6) * .08; ctx.scale(1 + squash, 1 - squash); }
+    icon(f, t, sz); ctx.restore();
+    // 이름 + 부제 (오른쪽에서 밀려 들어옴)
+    if (tp > 0) {
+      const tx = iconX + sz / 2 + gap, a = easeOut(prog(f, t.s2 + 4, t.s2 + +S.d2));
+      ctx.save(); ctx.beginPath(); ctx.rect(tx - 8, 0, W, H); ctx.clip();
+      ctx.globalAlpha *= a; ctx.textBaseline = "alphabetic";
+      ctx.font = `700 ${TFS}px ${E.SANS}`; ctx.fillStyle = S.colors.title; ctx.fillText(S.title, tx - lerp(TFS * 1.2, 0, a), cy + (S.sub ? TFS * .18 : TFS * .36));
+      if (S.sub) { const a2 = easeOut(prog(f, t.s2 + 8, t.s2 + +S.d2 + 4)); ctx.globalAlpha = (1 - ex) * a2; ctx.font = `500 ${SFS}px ${E.SANS}`; ctx.fillStyle = S.colors.sub; ctx.fillText(S.sub, tx - lerp(TFS, 0, a2), cy + TFS * .18 + SFS * 1.5); }
+      ctx.restore();
+    }
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

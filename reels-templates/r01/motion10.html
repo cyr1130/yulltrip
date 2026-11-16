@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 10</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf, kf2 } = E;
+
+const S = {
+  accent: "#c6ff1f", bgTop: "#0b2a17", featBg: "#f6f6f5",
+  starText: "", img: { star: [] }, starSize: 460,
+  listSub: "Select from presets, record your own, or upload an audio.", imgLabel: "Image", promptLabel: "Prompt", nodeBadge: "Model | 16:9 | 2K",
+  colors: { bgBottom: "#0a0b12", badge: "#1a2a22", badgeText: "#ffffff", badgeRing: "#ffffff", word: "#ffffff", star: "#c6ff1f",
+            featTitle: "#111111", darkCard: "#1b1c1e", graphic: "#e8e8e8", listText: "#e6e6e6", listRow: "#1f2123",
+            flowBg: "#121417", flowLine: "#96afcd", node: "#1d1f22", nodeLines: "#9a9da2", label: "#6f7472",
+            c1: "#7f8cff", c2: "#f19a3e", c3: "#e070ee", c4: "#c6ff1f", cursorText: "#ffffff" },
+  badges: "SEEDANCE 2.0\nGPT IMAGE 2.0\nKLING 3.0\nVEO 3.1 4K\nANGLES V2\nMARKETING STUDIO\nAI Influencer Studio\nRelight\nGrok Imagine\nCINEMA STUDIO",
+  words: "now you can *chain* every *model*",
+  f: [
+    { title: "image", kind: "photo", img: [] }, { title: "video", kind: "photo", img: [] },
+    { title: "cinematic cameras", kind: "icons", img: [] }, { title: "voice change", kind: "wave", img: [] },
+    { title: "translation", kind: "list", img: [] },
+  ],
+  listTitle: "CHOOSE LANGUAGE", listItems: "ENGLISH\nFRENCH\nJAPANESE\nGERMAN\nNORWEGIAN",
+  flow: { images: [] }, cursors: "disacube, Temirlan, kaye, nnikiw",
+  d1: 64, per: 16, d3: 78,
+};
+const feats = () => S.f.filter(x => x.title.trim());
+const T = () => ({ total: +S.per * Math.max(1, feats().length) + 1 });
+
+// ---------- 장면 1: 모델 배지 + 키워드 → 별 ----------
+function rnd(i, k) { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); }
+function star(x, y, r, rot, color, glow = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.beginPath();
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.lineTo(r * Math.cos(a), r * Math.sin(a)); const b = a + Math.PI / 4; ctx.quadraticCurveTo(r * .12 * Math.cos(b), r * .12 * Math.sin(b), r * Math.cos(a + Math.PI / 2), r * Math.sin(a + Math.PI / 2)); }
+  ctx.closePath(); ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 60 * glow; ctx.fill(); ctx.restore();
+}
+function scene1(f, dur) {
+  const k = dur / 64;
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, S.bgTop); g.addColorStop(1, S.colors.bgBottom); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const names = S.badges.split("\n").map(s => s.trim()).filter(Boolean);
+  const conv = easeIn(prog(f, 40 * k, 50 * k));
+  const items = [];
+  for (let i = 0; i < Math.max(names.length + 4, 12); i++) {
+    const z = .35 + .65 * rnd(i, 1), bx = (rnd(i, 2) - .5) * 1700, by = (rnd(i, 3) - .5) * 2700;
+    const grow = 1 + .9 * (f / (44 * k)) * z;           // 카메라가 앞으로 나아가는 느낌
+    let x = 720 + bx * grow, y = 1280 + by * grow, r = (105 + 115 * z) * (.85 + .35 * f / (44 * k));
+    x = lerp(x, 720, conv); y = lerp(y, 1280, conv); r *= 1 - conv;
+    items.push({ i, z, x, y, r, name: names[i % names.length] });
+  }
+  items.sort((a, b) => a.z - b.z).forEach(it => {
+    if (it.r < 2) return;
+    ctx.save(); ctx.globalAlpha = clamp(prog(f, it.i * .6, it.i * .6 + 6)) * (.45 + .55 * it.z); if (it.z < .55) ctx.filter = `blur(${(1 - it.z) * 6}px)`;
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, 7); const bg = ctx.createRadialGradient(it.x, it.y - it.r * .4, 0, it.x, it.y, it.r); bg.addColorStop(0, S.colors.badge); bg.addColorStop(1, E.hexA(S.colors.badge, .55)); ctx.fillStyle = bg; ctx.shadowColor = "rgba(0,0,0,.7)"; ctx.shadowBlur = 50; ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = E.hexA(S.colors.badgeRing, .14); ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = S.colors.badgeText; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    let fs = it.r * .5; ctx.font = `${fs}px Anton, Impact, sans-serif`; const mw = ctx.measureText(it.name).width; if (mw > it.r * 1.6) { fs *= it.r * 1.6 / mw; ctx.font = `${fs}px Anton, Impact, sans-serif`; }
+    ctx.fillText(it.name, it.x, it.y); ctx.restore();
+  });
+  // 키워드 한 단어씩
+  const words = S.words.split(/\s+/).filter(Boolean), wEnd = 44 * k, per = wEnd / Math.max(1, words.length);
+  const wi = Math.floor(f / per);
+  if (f < wEnd && words[wi]) { const w = words[wi], hi = /^\*.*\*$/.test(w), tx = hi ? w.slice(1, -1) : w, p = prog(f - wi * per, 0, 2);
+    ctx.save(); ctx.globalAlpha = p; ctx.fillStyle = hi ? S.accent : S.colors.word; ctx.font = `600 66px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tx, 720, 1280 + lerp(14, 0, easeOut(p))); ctx.restore(); }
+  // 별
+  const sp = prog(f, 47 * k, 58 * k);
+  if (sp > 0) { const r = lerp(30, +S.starSize / 2, back(sp)) * (1 + .04 * Math.sin(f / 2)), rot = lerp(Math.PI / 4, 0, easeOut(sp));
+    if (S.img.star[0] || S.starText) { ctx.save(); ctx.translate(720, 1280); ctx.rotate(rot); ctx.shadowColor = S.colors.star; ctx.shadowBlur = 60; E.symbol(S.starText, S.img.star, 0, 0, r * 2, S.colors.star, 700); ctx.restore(); }
+    else star(720, 1280, r, rot, S.colors.star, 1); }
+  const flash = prog(f, dur - 3, dur);
+  if (flash > 0) { ctx.fillStyle = E.hexA(S.featBg, flash); ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- 장면 2: 기능 카드 캐러셀 ----------
+const CW = 700, CH = 940;
+function cardContent(ft, x, y, w, h, u) {
+  if (ft.kind === "photo") { E.cover((ft.img[0] || {}).img, x, y, w, h, 36, false); return; }
+  E.rr(x, y, w, h, 36); const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, S.colors.darkCard); g.addColorStop(1, E.hexA(S.colors.darkCard, .85)); ctx.fillStyle = g; ctx.fill();
+  if (ft.img[0]) { ctx.save(); ctx.globalAlpha = .9; E.cover(ft.img[0].img, x, y, w, h, 36, false); ctx.restore(); return; }
+  const cx = x + w / 2, cy = y + h / 2;
+  if (ft.kind === "wave") {
+    ctx.save(); ctx.strokeStyle = S.colors.graphic; ctx.lineCap = "round"; ctx.shadowColor = E.hexA(S.colors.graphic, .5); ctx.shadowBlur = 16;
+    for (let i = -18; i <= 18; i++) { const a = Math.exp(-Math.pow(i / 7, 2)) * (60 + 60 * Math.abs(Math.sin(u / 2.5 + i * .7))) + 6; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(cx + i * 16, cy - a); ctx.lineTo(cx + i * 16, cy + a); ctx.stroke(); }
+    ctx.restore();
+  } else if (ft.kind === "list") {
+    const items = S.listItems.split("\n").filter(Boolean).slice(0, 6);
+    ctx.save(); ctx.fillStyle = S.colors.listText; ctx.font = `700 48px ${E.SANS}`; ctx.textBaseline = "top"; ctx.fillText(S.listTitle, x + 50, y + 60);
+    ctx.fillStyle = E.hexA(S.colors.listText, .55); ctx.font = `24px ${E.SANS}`; ctx.fillText(S.listSub, x + 50, y + 130, w - 100);
+    const sel = kf(u, [[0, 0], [6, 0], [11, 1]]);
+    items.forEach((it, i) => { const yy = y + 210 + i * 120; E.rr(x + 44, yy, w - 88, 96, 18); ctx.fillStyle = S.colors.listRow; ctx.fill();
+      E.rr(x + 74, yy + 34, 40, 28, 4); ctx.fillStyle = ["#3b6ee8", "#e84a3b", "#f2f2f2", "#d9a92b", "#c43b4a", "#3bb36e"][i % 6]; ctx.fill();
+      ctx.fillStyle = S.colors.listText; ctx.font = `500 32px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText(it, x + 140, yy + 48); });
+    const sy = y + 210 + sel * 120; E.rr(x + 40, sy - 4, w - 80, 104, 20); ctx.strokeStyle = S.colors.listText; ctx.lineWidth = 4; ctx.stroke();
+    ctx.restore();
+  } else { // icons: 카메라 아이콘들이 원형으로
+    ctx.save(); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + u * .03, ix = cx + 220 * Math.cos(a), iy = cy + 260 * Math.sin(a);
+      ctx.fillStyle = E.hexA(S.colors.graphic, .25); E.rr(ix - 46, iy - 32, 92, 64, 10); ctx.fill(); ctx.fillStyle = "#1b1c1e"; ctx.beginPath(); ctx.arc(ix, iy, 20, 0, 7); ctx.fill(); ctx.fillStyle = "#6b6d70"; ctx.beginPath(); ctx.arc(ix, iy, 11, 0, 7); ctx.fill(); E.rr(ix + 22, iy - 44, 30, 14, 4); ctx.fillStyle = "#4a4c4f"; ctx.fill(); }
+    ctx.restore();
+  }
+}
+function scene2(f, per) {
+  ctx.fillStyle = S.featBg; ctx.fillRect(0, 0, W, H);
+  const F = feats(); if (!F.length) return;
+  const i = Math.min(F.length - 1, Math.floor(f / per)), u = f - i * per;
+  // 카드 넘김: 카드 시간의 85% 동안 이동(멈칫하는 구간을 줄임). 사인 곡선이라 중간 속도 피크가 낮아 프레임 간 점프가 작음
+  const tr = per * .85, smoother = t => t * t * t * (t * (t * 6 - 15) + 10), glide = t => .5 - .5 * Math.cos(Math.PI * t);
+  const cur = i === 0 ? 0 : i - 1 + glide(prog(u, 0, tr));
+  const enter = smoother(prog(f, 0, 9));
+  const cards = F.map((ft, j) => ({ ft, j, q: j - cur })).filter(c => Math.abs(c.q) < 1.9).sort((a, b) => Math.abs(b.q) - Math.abs(a.q));
+  cards.forEach(c => {
+    const aq = Math.abs(c.q), near = Math.min(1, aq);
+    const x = 720 + 335 * Math.sign(c.q) * (near + .25 * Math.max(0, aq - 1));   // 뒤로 갈수록 덜 벌어짐
+    const bob = 7 * Math.sin((f + c.j * 9) / 10) * (1 - near * .6);              // 앞 카드는 살짝 떠 있음
+    const y = 1275 + lerp(260, 0, enter) + bob;
+    const sc = (1 - .15 * near - .05 * Math.max(0, aq - 1)) * lerp(.92, 1, enter);
+    ctx.save();
+    ctx.globalAlpha = clamp(1.85 - aq) * clamp(enter * 1.6);
+    ctx.translate(x, y); ctx.rotate(-c.q * 2.2 * Math.PI / 180); ctx.scale(sc, sc);
+    E.shadowed(() => { E.rr(-CW / 2, -CH / 2, CW, CH, 36); ctx.fillStyle = "#ddd"; ctx.fill(); }, lerp(70, 34, near), lerp(30, 14, near), `rgba(0,0,0,${lerp(.24, .12, near)})`);
+    cardContent(c.ft, -CW / 2, -CH / 2, CW, CH, c.j === i ? u : c.j === i - 1 ? per : 0);
+    if (near > .02) { E.rr(-CW / 2, -CH / 2, CW, CH, 36); ctx.fillStyle = `rgba(246,246,245,${.18 * near})`; ctx.fill(); }   // 뒤 카드는 살짝 흐리게
+    ctx.restore();
+  });
+  // 제목: 카드 이동과 같은 박자로 교체
+  const tp = i === 0 ? enter : smoother(prog(u, tr * .2, tr * .9));
+  ctx.save(); ctx.fillStyle = S.colors.featTitle; ctx.font = `700 64px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.globalAlpha = tp; ctx.fillText(F[i].title, 720, 640 + lerp(26, 0, tp));
+  if (i > 0 && tp < 1) { ctx.globalAlpha = 1 - tp; ctx.fillText(F[i - 1].title, 720, 640 - 26 * tp); }
+  ctx.restore();
+}
+
+// ---------- 장면 3: 워크플로 노드 패닝 ----------
+const COLS = 8, COLW = 640;
+function flowNodes() {
+  const imgs = S.flow.images, nodes = [];
+  for (let c = 0; c < COLS; c++) for (let r = 0; r < 3; r++) {
+    const isImg = (c + r) % 2 === 0 || !imgs.length ? !!imgs.length : false;
+    const w = isImg ? 500 : 420, h = isImg ? 300 : 260, x = c * COLW + (rnd(c * 3 + r, 4) - .5) * 80, y = 640 + r * 520 + (rnd(c * 3 + r, 5) - .5) * 120;
+    nodes.push({ c, r, x, y, w, h, isImg, img: imgs.length ? imgs[(c * 3 + r) % imgs.length].img : null });
+  }
+  return nodes;
+}
+// 카메라: 천천히 출발해서 일정하게 흐르다 부드럽게 멈춤
+const flowPan = (f, dur) => { const D = -(COLS * COLW - 1440 + 200), t = clamp(f / dur), a = .18, v = 1 / (1 - a);
+  const e = t < a ? v * t * t / (2 * a) : t > 1 - a ? 1 - v * (1 - t) * (1 - t) / (2 * a) : v * (t - a / 2); return D * e; };
+const flowZoom = f => lerp(1.12, 1, easeInOut(prog(f, 0, 14)));
+const toScreen = (wx, wy, f, dur) => { const z = flowZoom(f); return [(wx + flowPan(f, dur) + 120 - 720) * z + 720, (wy - 1280) * z + 1280]; };
+
+// 커서마다 '화면에 보이는 노드로 이동 → 잠깐 멈춤(가끔 클릭) → 다음 노드' 를 반복하는 경로를 만듦
+function cursorPath(ci, dur, nodes) {
+  const pick = (t, seed) => {
+    let c = nodes.filter(n => { const [x, y] = toScreen(n.x + n.w / 2, n.y + n.h / 2, t, dur); return x > 260 && x < 1180 && y > 620 && y < 2080; });
+    const pref = c.filter(n => n.r === ci % 3); if (pref.length && rnd(seed, 10) < .7) c = pref;
+    if (!c.length) c = nodes;
+    const n = c[Math.floor(rnd(seed, 11) * c.length)];
+    const [x, y] = toScreen(n.x + n.w * (.2 + .6 * rnd(seed, 12)), n.y + n.h * (.25 + .55 * rnd(seed, 13)), t, dur);   // 도착 시점의 화면 위치
+    return [clamp(x, 200, 1220), clamp(y, 620, 2120)];
+  };
+  const segs = []; let t = 3 + ci * 4, pos = pick(t, ci * 97 + 1), k = 0;
+  segs.push({ t0: -99, t1: t, from: pos, to: pos, hold: true });
+  while (t < dur + 40 && k < 40) {
+    const seed = ci * 97 + k * 7 + 3, move = 12 + rnd(seed, 7) * 13, pause = 3 + rnd(seed, 8) * 11, ta = t + move, to = pick(ta, seed);
+    segs.push({ t0: t, t1: ta, from: pos, to, bend: (rnd(seed, 9) - .5) * .55 });
+    segs.push({ t0: ta, t1: ta + pause, from: to, to, hold: true, click: rnd(seed, 14) > .45 });
+    pos = to; t = ta + pause; k++;
+  }
+  return segs;
+}
+function cursorAt(ci, f, dur, nodes) {
+  const segs = cursorPath(ci, dur, nodes), sg = segs.find(s => f >= s.t0 && f < s.t1) || segs[segs.length - 1];
+  let wx, wy, click = 0;
+  if (sg.hold) { [wx, wy] = sg.to; if (sg.click) click = Math.exp(-Math.pow((f - sg.t0 - 2.5) / 1.1, 2)); }
+  else {
+    const u = clamp((f - sg.t0) / (sg.t1 - sg.t0)), s = u * u * (3 - 2 * u), e = 1 - Math.pow(1 - s, 1.7);   // 출발은 부드럽게, 도착은 길게 감속
+    const [x0, y0] = sg.from, [x1, y1] = sg.to, mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = x1 - x0, dy = y1 - y0;
+    const cx = mx - dy * sg.bend, cy = my + dx * sg.bend;                                                           // 살짝 휘어진 경로
+    wx = (1 - e) * (1 - e) * x0 + 2 * (1 - e) * e * cx + e * e * x1; wy = (1 - e) * (1 - e) * y0 + 2 * (1 - e) * e * cy + e * e * y1;
+  }
+  // 손떨림 정도의 미세한 흔들림
+  wx += 2.2 * Math.sin(f * .83 + ci * 1.7) + 1.3 * Math.sin(f * 2.1 + ci); wy += 2 * Math.cos(f * .71 + ci * 2.3) + 1.2 * Math.sin(f * 1.9 + ci * .5);
+  const x = wx, y = wy;   // 화면 좌표 (멈춘 동안은 화면에 가만히 있음)
+  return { x, y, click, clickT: sg.hold && sg.click ? f - sg.t0 : -1 };
+}
+
+function scene3(f, dur) {
+  ctx.fillStyle = S.colors.flowBg; ctx.fillRect(0, 0, W, H); E.dotGrid("rgba(255,255,255,.04)");
+  const cols = COLS, pan = flowPan(f, dur), zz = flowZoom(f);
+  ctx.save(); ctx.translate(720, 1280); ctx.scale(zz, zz); ctx.translate(-720 + pan + 120, -1280);
+  ctx.globalAlpha = clamp(prog(f, 0, 5) * 1.6);
+  const nodes = flowNodes();
+  ctx.save(); ctx.strokeStyle = E.hexA(S.colors.flowLine, .55); ctx.lineWidth = 3;
+  nodes.forEach(n => { if (n.c === cols - 1) return; [0, 1].forEach(o => { const m = nodes[(n.c + 1) * 3 + ((n.r + o + (n.c % 2)) % 3)]; ctx.beginPath(); ctx.moveTo(n.x + n.w, n.y + n.h / 2); ctx.bezierCurveTo(n.x + n.w + 90, n.y + n.h / 2, m.x - 90, m.y + m.h / 2, m.x, m.y + m.h / 2); ctx.stroke(); }); });
+  ctx.restore();
+  nodes.forEach((n, idx) => {
+    const sx = (n.x + pan + 120 - 720) * zz + 720, p = easeOut(prog(sx, 1700, 1300)) ; // 화면에 들어오며 나타남
+    if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha *= p; ctx.translate(n.x + n.w / 2, n.y + n.h / 2); ctx.scale(lerp(.9, 1, p), lerp(.9, 1, p)); ctx.translate(-n.w / 2, -n.h / 2);
+    E.label(n.isImg ? S.imgLabel : S.promptLabel, 6, -26, S.colors.label, 15);
+    if (n.isImg) { E.cover(n.img, 0, 0, n.w, n.h, 12); E.pill(S.nodeBadge, 14, n.h - 38, { size: 12 }); }
+    else { E.shadowed(() => { E.rr(0, 0, n.w, n.h, 16); ctx.fillStyle = S.colors.node; ctx.fill(); }, 30, 10, "rgba(0,0,0,.4)");
+      ctx.fillStyle = S.colors.nodeLines; for (let l = 0; l < 6; l++) ctx.fillRect(24, 30 + l * 30, (n.w - 48) * (l === 5 ? .5 : .85 + .15 * rnd(idx, l)), 10); }
+    ctx.restore();
+  });
+  ctx.restore();
+  const names = S.cursors.split(",").map(s => s.trim()), colors = [S.colors.c1, S.colors.c2, S.colors.c3, S.colors.c4];
+  names.slice(0, 4).forEach((nm, i) => {
+    if (!nm) return;
+    const c = cursorAt(i, f, dur, nodes), a = clamp(prog(f, 3 + i * 4, 7 + i * 4));
+    if (c.clickT >= 1.5 && c.clickT < 9) { const p = (c.clickT - 1.5) / 7.5; ctx.save(); ctx.globalAlpha = a * (1 - p) * .8; ctx.strokeStyle = colors[i]; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(c.x + 6, c.y + 5, 10 + 38 * easeOut(p), 0, 7); ctx.stroke(); ctx.restore(); }
+    E.cursor(c.x, c.y, nm, colors[i], 1.1 * (1 - .12 * c.click), a, S.colors.cursorText);
+  });
+}
+E.start({
+  title: "모션 10 · 기능 카드", group: "릴스01 템플릿", file: "motion10", state: S,
+  intro: "흰 화면에서 기능 카드가 한 장씩 넘어가요.",
+  images: { "f.0.img": [{ file: "m4_img2.jpg" }], "f.1.img": [{ file: "m4_video.jpg" }] },
+  sections: [
+    { title: "① 기능 카드", durKey: "2", hint: "제목을 비우면 그 카드는 빠져요. 그래픽 종류: 사진 / 카메라 아이콘 / 음성 웨이브 / 언어 목록. 사진이 아닌 종류도 이미지를 넣으면 이미지가 보여요.",
+      rows: [0, 1, 2, 3, 4].map(i => [{ key: `f.${i}.title`, label: `카드 ${i + 1} 제목` }, { type: "select", key: `f.${i}.kind`, label: "그래픽", options: [["photo", "사진"], ["icons", "카메라 아이콘"], ["wave", "음성 웨이브"], ["list", "언어 목록"]] }])
+        .flatMap((row, i) => [row, [{ type: "images", key: `f.${i}.img`, label: `카드 ${i + 1} 이미지` }]])
+        .concat([[{ key: "listTitle", label: "목록 제목" }], [{ key: "listSub", label: "언어 목록 설명 문구" }], [{ type: "textarea", key: "listItems", label: "목록 항목 (한 줄에 하나)" }], [{ type: "number", key: "per", label: "카드 1장당 길이 (프레임)", min: 10, max: 60 }], [{ type: "sub", label: "색상" }], [{ type: "color", key: "featBg", label: "기능 카드 배경" }, { type: "color", key: "colors.featTitle", label: "카드 제목" }], [{ type: "color", key: "colors.darkCard", label: "그래픽 카드" }, { type: "color", key: "colors.graphic", label: "웨이브 · 아이콘" }], [{ type: "color", key: "colors.listRow", label: "언어 목록 줄" }, { type: "color", key: "colors.listText", label: "언어 목록 글자" }]]) },
+  ],
+  durations: { 2: S => +S.per * feats().length },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx;
+    scene2(Math.min(f, T().total - 1.01), +S.per);
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

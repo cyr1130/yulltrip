@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 04</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04, I = U04.icons; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00",
+  items: "스마트 편집\n파노라마 ✦\n확장\n창의적 업스케일\n배경 삭제\n|\n사전 설정 보기 ⌄\n각도\n조명 조정 ✦\nMarketing ⌄\n추가 도구 ⌄\n에이전트에게 요청 ⌄\n|\n(아이콘)\n(아이콘)",
+  view: "pan", zoom: 1, startItem: 1, clickItem: 8, showCursor: true, keepActive: true,
+  colors: { bar: "#1c1c1c", text: "#ececec", icon: "#ececec", sparkle: "#2f9bff", hover: "#ffffff", line: "#3a3a3a" },
+  d1: 16, d2: 100, d3: 36,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3; return { s2: a, s3: a + b, total: a + b + c }; };
+const ICONS = ["wand", "pano", "focus", "hd", "person", "presets", "angle", "light", "bag", "tools", "agent", "full", "download"];
+const BH = 104, FS = 34, PADX = 22;
+
+function parse() {
+  ctx.font = `500 ${FS}px ${E.SANS}`; const out = []; let x = 14, k = 0;
+  for (const raw of String(S.items).split("\n")) {
+    const line = raw.trim(); if (!line) continue;
+    if (line === "|") { out.push({ div: 1, x: x + 14 }); x += 30; continue; }
+    const star = /✦/.test(line), chev = /⌄/.test(line), iconOnly = /^\(아이콘\)$/.test(line);
+    const label = iconOnly ? "" : line.replace(/[✦⌄]/g, "").trim();
+    let w = PADX * 2 + 40 + (label ? 14 + ctx.measureText(label).width : 0) + (star ? 12 + 26 : 0) + (chev ? 12 + 22 : 0);
+    if (iconOnly) w = 40 + PADX * 2;
+    out.push({ label, star, chev, icon: ICONS[k % ICONS.length], x, w, idx: k++ }); x += w + 6;
+  }
+  return { items: out, width: x + 8 };
+}
+function drawItem(it, hover, active, press) {
+  const c = S.colors, x = it.x, y = 12, h = BH - 24;
+  if (hover > 0 || active > 0) { E.rr(x, y, it.w, h, 18); ctx.fillStyle = E.hexA(c.hover, .07 * hover + .12 * active); ctx.fill(); }
+  ctx.save(); const cx = x + it.w / 2, cy = BH / 2, s = 1 - .06 * press; ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+  let px = x + PADX; I[it.icon](px + 20, cy, 40, c.icon, 2.1); px += 40;
+  ctx.font = `${active > .5 ? 600 : 500} ${FS}px ${E.SANS}`; ctx.textBaseline = "middle";
+  if (it.label) { px += 14; ctx.fillStyle = c.text; ctx.fillText(it.label, px, cy + 1); px += ctx.measureText(it.label).width; }
+  if (it.star) { px += 12; I.sparkle(px + 13, cy, 26, c.sparkle); px += 26; }
+  if (it.chev) { px += 12; I.chevron(px + 11, cy + 1, 22, c.icon, 2.2); px += 22; }
+  ctx.restore();
+}
+
+E.start({
+  title: "모션 04 · 이미지 툴바 훑기 + 클릭", group: "릴스04 템플릿", file: "motion04", state: S, alpha: true,
+  intro: "드리미나 이미지 편집 툴바가 떠오르고, 마우스가 버튼을 하나씩 지나가며 강조돼요. 정한 버튼에서 클릭하면 눌린 상태로 남아요. 툴바가 길어서 '따라가며 보기'는 커서를 따라 화면이 옆으로 흘러가요.",
+  sections: [
+    { title: "공통", rows: [...U.bgRows,
+        [{ type: "select", key: "view", label: "보기 방식", options: [["pan", "따라가며 보기 (크게)"], ["fit", "한 줄 전체 (작게)"]] }, { type: "number", key: "zoom", label: "크기 배율", min: .3, max: 2 }]] },
+    { title: "① 툴바 등장", durKey: "1", hint: "버튼은 줄마다 하나. 뒤에 ✦ 를 붙이면 파란 별, ⌄ 를 붙이면 화살표. '|' 는 구분선, '(아이콘)' 은 글자 없는 아이콘 버튼. 아이콘은 위에서부터 순서대로 붙어요.",
+      rows: [[{ type: "textarea", key: "items", label: "버튼 목록" }], [{ type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 90 }]] },
+    { title: "② 커서가 훑기", durKey: "2",
+      rows: [[{ type: "number", key: "startItem", label: "시작 버튼 번호", min: 1, max: 30 }, { type: "number", key: "clickItem", label: "클릭할 버튼 번호", min: 1, max: 30 }],
+        [{ type: "bool", key: "showCursor", label: "마우스 커서" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 10, max: 400 }]] },
+    { title: "③ 클릭", durKey: "3",
+      rows: [[{ type: "bool", key: "keepActive", label: "누른 버튼 강조 유지" }, { type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 160 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.bar", label: "툴바" }, { type: "color", key: "colors.text", label: "글자" }],
+        [{ type: "color", key: "colors.icon", label: "아이콘" }, { type: "color", key: "colors.sparkle", label: "파란 별" }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(); U.bg(S); const c = S.colors;
+    const { items, width } = parse(), btns = items.filter(o => !o.div), nb = btns.length;
+    const a = clamp(Math.round(+S.startItem) - 1, 0, nb - 1), b = clamp(Math.round(+S.clickItem) - 1, 0, nb - 1);
+    const cen = i => btns[i].x + btns[i].w / 2;
+    // 커서 x (툴바 좌표): 버튼 중심을 차례로 지나감
+    const steps = Math.max(1, Math.abs(b - a)), q = prog(f - t.s2, 0, +S.d2) * steps, seg = Math.min(steps - 1, Math.floor(q)), dir = b >= a ? 1 : -1;
+    const i0 = a + dir * seg, i1 = a + dir * Math.min(steps, seg + 1), cxBar = a === b ? cen(a) : lerp(cen(i0), cen(i1), easeInOut(q - seg));
+    // 화면 배치
+    const fitK = (W - 80) / width, k = (S.view === "fit" ? fitK : 1) * (+S.zoom || 1);
+    let ox;
+    if (width * k <= W - 80) ox = (W - width * k) / 2;
+    else { const want = W / 2 - cxBar * k; ox = clamp(want, W - 40 - width * k, 40); }
+    const p = easeOut(prog(f, 0, 14));
+    ctx.save(); ctx.globalAlpha = clamp(p * 1.4); ctx.translate(ox, H / 2 - BH * k / 2 + lerp(60, 0, p)); ctx.scale(k, k);
+    U.shadow(S, () => { E.rr(0, 0, width, BH, 30); ctx.fillStyle = c.bar; ctx.fill(); }, 60, 20, "rgba(0,0,0,.5)");
+    E.rr(0, 0, width, BH, 30); ctx.fillStyle = c.bar; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 2; ctx.stroke();
+    const click = t.s3 + 2, cp = prog(f, click - 2, click + 6), press = cp > 0 && cp < 1 ? Math.sin(Math.PI * cp) : 0;
+    const act = S.keepActive ? easeOut(prog(f, click, click + 6)) : 0;
+    const hovering = f >= t.s2 - 4 && S.showCursor;
+    items.forEach(it => {
+      if (it.div) { ctx.fillStyle = c.line; ctx.fillRect(it.x, BH / 2 - 26, 2, 52); return; }
+      const d = Math.abs(cxBar - (it.x + it.w / 2)), hv = hovering ? clamp(1.4 - d / (it.w / 2)) : 0;
+      drawItem(it, it.idx === b ? Math.max(hv, act) : hv * (1 - act), it.idx === b ? act : 0, it.idx === b ? press : 0);
+    });
+    U.ripple(cen(b), BH / 2, prog(f, click, click + 16), "#ffffff", 90);
+    if (S.showCursor) {
+      const inA = easeOut(prog(f, t.s2 - 10, t.s2 + 4)), out = easeIn(prog(f, click + 14, t.total - 2));
+      U.arrow(cxBar + 6, BH / 2 + 8 + lerp(140, 0, inA) + out * 160, 1.5 / Math.max(.6, k), inA * (1 - out), press, U.green(S));
+    }
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

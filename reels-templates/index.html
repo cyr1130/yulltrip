@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>릴스 모션 템플릿 모음</title><style>
+  :root { --bg: #f5f5f4; --card: #fff; --line: #e4e4e2; --text: #1d1d1b; --muted: #77776f; --accent: #2b59ff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #161616; --card: #1f1f1f; --line: #333; --text: #eee; --muted: #9a9a94; } }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font: 15px/1.5 -apple-system, "Apple SD Gothic Neo", "Helvetica Neue", sans-serif; color: var(--text); background: var(--bg); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 36px 24px 60px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 0; background: var(--bg); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  nav a { padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); text-decoration: none; font-size: 13.5px; font-weight: 600; }
+  nav a span { color: var(--muted); font-weight: 400; margin-left: 4px; }
+  section { padding-top: 22px; scroll-margin-top: 56px; }
+  h2 { font-size: 20px; margin: 0 0 12px; display: flex; align-items: baseline; gap: 10px; }
+  h2 a { font-size: 13px; font-weight: 400; color: var(--accent); text-decoration: none; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  a.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; color: inherit; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.12); }
+  .thumb { aspect-ratio: 9 / 16; background: #0c0f12 center/cover no-repeat; }
+  .meta { padding: 10px 12px 12px; }
+  .num { font-size: 11.5px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+  .name { font-weight: 600; margin: 2px 0 4px; font-size: 14px; }
+  .desc { font-size: 12px; color: var(--muted); }
+  .tip { margin-top: 32px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--muted); font-size: 13px; }
+  .tip b { color: var(--text); }
+</style></head>
+<body><div class="wrap">
+  <h1>릴스 모션 템플릿 모음</h1>
+  <p class="sub">릴스01~04 템플릿 22개를 한 곳에 모았어요. 모션을 누르면 편집 페이지가 열려요.</p>
+  <nav><a href="#릴스01">릴스01<span>9</span></a><a href="#릴스02">릴스02<span>3</span></a><a href="#릴스03">릴스03<span>4</span></a><a href="#릴스04">릴스04<span>6</span></a></nav>
+  <section id="릴스01"><h2>릴스01 템플릿 <a href="r01/index.html">이 세트만 보기 →</a></h2><div class="grid">
+<a class="card" href="r01/motion01.html"><div class="thumb" style="background-image:url('r01/thumbs/motion01.jpg')"></div><div class="meta"><div class="num">릴스01 · 01 모션</div><div class="name">버튼 → 원형 리빌</div><div class="desc">+ 버튼이 돌고 빛나는 원이 퍼지며 노드 캔버스가 열려요 · 약 2초</div></div></a>
+<a class="card" href="r01/motion03.html"><div class="thumb" style="background-image:url('r01/thumbs/motion03.jpg')"></div><div class="meta"><div class="num">릴스01 · 03 모션</div><div class="name">노드 → 풀스크린 → 설정</div><div class="desc">결과가 화면 가득, 모델 목록·카메라 설정 후 최종 영상 · 약 9.6초</div></div></a>
+<a class="card" href="r01/motion06.html"><div class="thumb" style="background-image:url('r01/thumbs/motion06.jpg')"></div><div class="meta"><div class="num">릴스01 · 06 모션</div><div class="name">AI 패널 → 댓글 → 로고 엔딩</div><div class="desc">채팅 입력 → 댓글 게시·게시자 답글·하트 → 단색 로고 엔딩 · 약 11.8초</div></div></a>
+<a class="card" href="r01/motion07.html"><div class="thumb" style="background-image:url('r01/thumbs/motion07.jpg')"></div><div class="meta"><div class="num">릴스01 · 07 모션</div><div class="name">AI 패널 → 댓글 카드 → 로고 엔딩</div><div class="desc">06과 같고, 댓글창이 좌우 여백 있는 둥근 카드로 떠올라요 · 약 6.3초</div></div></a>
+<a class="card" href="r01/motion08.html"><div class="thumb" style="background-image:url('r01/thumbs/motion08.jpg')"></div><div class="meta"><div class="num">릴스01 · 08 모션</div><div class="name">댓글 카드 + 하트</div><div class="desc">채팅창·로고 엔딩 없이 댓글 카드만 · 하트가 길게 떠올라요 · 약 8.1초</div></div></a>
+<a class="card" href="r01/motion09.html"><div class="thumb" style="background-image:url('r01/thumbs/motion09.jpg')"></div><div class="meta"><div class="num">릴스01 · 09 모션</div><div class="name">모델 배지 + 키워드 + 별</div><div class="desc">배지 사이로 키워드가 나오고 별로 모여요 · 약 2.7초</div></div></a>
+<a class="card" href="r01/motion10.html"><div class="thumb" style="background-image:url('r01/thumbs/motion10.jpg')"></div><div class="meta"><div class="num">릴스01 · 10 모션</div><div class="name">기능 카드</div><div class="desc">흰 화면에서 기능 카드가 한 장씩 넘어가요 · 약 3.4초</div></div></a>
+<a class="card" href="r01/motion11.html"><div class="thumb" style="background-image:url('r01/thumbs/motion11.jpg')"></div><div class="meta"><div class="num">릴스01 · 11 모션</div><div class="name">카드 등장</div><div class="desc">이미지 1~3장이 종이처럼 날아 들어와요 · 약 2.5초</div></div></a>
+<a class="card" href="r01/motion12.html"><div class="thumb" style="background-image:url('r01/thumbs/motion12.jpg')"></div><div class="meta"><div class="num">릴스01 · 12 모션</div><div class="name">노드 그래프 → 줌아웃 타이틀</div><div class="desc">프롬프트 입력·노드 그래프 → 줌아웃되며 큰 타이틀 · 약 3.8초</div></div></a>
+</div></section><section id="릴스02"><h2>릴스02 템플릿 <a href="r02/index.html">이 세트만 보기 →</a></h2><div class="grid">
+<a class="card" href="r02/motion03.html"><div class="thumb" style="background-image:url('r02/thumbs/motion03.jpg')"></div><div class="meta"><div class="num">릴스02 · 03 모션</div><div class="name">프롬프트 입력 → 전송</div><div class="desc">큰 글씨 타이핑, 하이라이트, 전송 버튼 클릭</div></div></a>
+<a class="card" href="r02/motion06.html"><div class="thumb" style="background-image:url('r02/thumbs/motion06.jpg')"></div><div class="meta"><div class="num">릴스02 · 06 모션</div><div class="name">렌더링 진행 카드</div><div class="desc">렌더 카드가 뜨고 퍼센트·막대가 오르며 미리보기가 드러나요</div></div></a>
+<a class="card" href="r02/motion07.html"><div class="thumb" style="background-image:url('r02/thumbs/motion07.jpg')"></div><div class="meta"><div class="num">릴스02 · 07 모션</div><div class="name">영상 위 프롬프트 오버레이</div><div class="desc">영상 위 입력창 등장, 전송 클릭 리플</div></div></a>
+</div></section><section id="릴스03"><h2>릴스03 템플릿 <a href="r03/index.html">이 세트만 보기 →</a></h2><div class="grid">
+<a class="card" href="r03/motion01.html"><div class="thumb" style="background-image:url('r03/thumbs/motion01.jpg')"></div><div class="meta"><div class="num">릴스03 · 01 모션</div><div class="name">피드 카드 전환</div><div class="desc">스토리 → 게시물 → 릴스 카드가 톡톡 바뀌고 숫자가 올라가요 · 약 2.9초</div></div></a>
+<a class="card" href="r03/motion02.html"><div class="thumb" style="background-image:url('r03/thumbs/motion02.jpg')"></div><div class="meta"><div class="num">릴스03 · 02 모션</div><div class="name">로고 + 프롬프트 입력</div><div class="desc">두 브랜드 이름 등장, 문장 타이핑 중 제품 사진 첨부 · 약 4.1초</div></div></a>
+<a class="card" href="r03/motion03.html"><div class="thumb" style="background-image:url('r03/thumbs/motion03.jpg')"></div><div class="meta"><div class="num">릴스03 · 03 모션</div><div class="name">Analyzing → Analyzed</div><div class="desc">사진 가장자리 빛 + 흐림, 분석 중 알약이 결과 카드로 커져요 · 약 4.3초</div></div></a>
+<a class="card" href="r03/motion04.html"><div class="thumb" style="background-image:url('r03/thumbs/motion04.jpg')"></div><div class="meta"><div class="num">릴스03 · 04 모션</div><div class="name">콘텐츠 캘린더 줌 → Post</div><div class="desc">캘린더에서 날짜 칸으로 확대, 카드 탭하면 Post 버튼 · 약 2.9초</div></div></a>
+</div></section><section id="릴스04"><h2>릴스04 템플릿 <a href="r04/index.html">이 세트만 보기 →</a></h2><div class="grid">
+<a class="card" href="r04/motion01.html"><div class="thumb" style="background-image:url('r04/thumbs/motion01.jpg')"></div><div class="meta"><div class="num">릴스04 · 01 모션</div><div class="name">드리미나 캔버스 + 노드 확대</div><div class="desc">노드·연결선 등장 → 결과 생성, 노드별 줌인 영상 저장 · 약 6.3초</div></div></a>
+<a class="card" href="r04/motion02.html"><div class="thumb" style="background-image:url('r04/thumbs/motion02.jpg')"></div><div class="meta"><div class="num">릴스04 · 02 모션</div><div class="name">프롬프트 패널</div><div class="desc">참조 이미지가 붙고 긴 프롬프트가 타이핑·스크롤, 전송 · 약 11초 (타이핑 속도 조절)</div></div></a>
+<a class="card" href="r04/motion03.html"><div class="thumb" style="background-image:url('r04/thumbs/motion03.jpg')"></div><div class="meta"><div class="num">릴스04 · 03 모션</div><div class="name">AI 동영상 탭 + 입력</div><div class="desc">커서가 탭을 눌러 전환, 한글 조합 타이핑, 전송 · 약 4.7초</div></div></a>
+<a class="card" href="r04/motion04.html"><div class="thumb" style="background-image:url('r04/thumbs/motion04.jpg')"></div><div class="meta"><div class="num">릴스04 · 04 모션</div><div class="name">이미지 툴바 훑기 + 클릭</div><div class="desc">커서가 버튼을 지나며 강조, 정한 버튼 클릭 · 약 6.3초</div></div></a>
+<a class="card" href="r04/motion05.html"><div class="thumb" style="background-image:url('r04/thumbs/motion05.jpg')"></div><div class="meta"><div class="num">릴스04 · 05 모션 · 가로 16:9</div><div class="name">피그마 아이콘 등장</div><div class="desc">도형 조립 / 팝업 / 독 바운스로 등장, 이름·부제가 옆에 · 약 3.8초</div></div></a>
+<a class="card" href="r04/motion06.html"><div class="thumb" style="background-image:url('r04/thumbs/motion06.jpg')"></div><div class="meta"><div class="num">릴스04 · 06 모션 · 가로 16:9</div><div class="name">드리미나 아이콘 등장</div><div class="desc">조각 조립 / 팝업 / 독 바운스로 등장, 이름·부제가 옆에 · 약 3.8초</div></div></a>
+</div></section>
+  <div class="tip"><b>사용 팁</b> · 입력한 글자·색·사진은 브라우저에 자동 저장돼서 다시 열어도 그대로예요 (편집 페이지의 '기본값으로 되돌리기'로 초기화). 내보내기는 Chrome 에서만 되고 인터넷 연결이 필요해요.</div>
+</div></body></html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>릴스01 템플릿</title>
+<style>
+  :root { --bg: #f5f5f4; --card: #fff; --line: #e4e4e2; --text: #1d1d1b; --muted: #77776f; --accent: #2b59ff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #161616; --card: #1f1f1f; --line: #333; --text: #eee; --muted: #9a9a94; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, "Apple SD Gothic Neo", "Helvetica Neue", sans-serif; color: var(--text); background: var(--bg); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 60px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
+  a.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; color: inherit; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.12); }
+  .thumb { aspect-ratio: 9 / 16; background: #0c0f12 center/cover no-repeat; }
+  .meta { padding: 12px 14px 14px; }
+  .num { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+  .name { font-weight: 600; margin: 2px 0 4px; }
+  .desc { font-size: 12.5px; color: var(--muted); }
+  .tip { margin-top: 28px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--muted); font-size: 13px; }
+  .tip b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>릴스01 템플릿</h1>
+  <p class="sub">모션을 고르면 이미지·문구·길이·색을 바꿔서 MP4로 내보낼 수 있는 편집 페이지가 열려요.</p>
+  <div class="grid">
+    <a class="card" href="motion01.html"><div class="thumb" style="background-image:url(thumbs/motion01.jpg)"></div><div class="meta"><div class="num">01 모션</div><div class="name">버튼 → 원형 리빌</div><div class="desc">+ 버튼이 돌고 빛나는 원이 퍼지며 노드 캔버스가 열려요 · 약 2초</div></div></a>
+    <a class="card" href="motion03.html"><div class="thumb" style="background-image:url(thumbs/motion03.jpg)"></div><div class="meta"><div class="num">03 모션</div><div class="name">노드 → 풀스크린 → 설정</div><div class="desc">결과가 화면 가득, 모델 목록·카메라 설정 후 최종 영상 · 약 9.6초</div></div></a>
+    <a class="card" href="motion06.html"><div class="thumb" style="background-image:url(thumbs/motion06.jpg)"></div><div class="meta"><div class="num">06 모션</div><div class="name">AI 패널 → 댓글 → 로고 엔딩</div><div class="desc">채팅 입력 → 댓글 게시·게시자 답글·하트 → 단색 로고 엔딩 · 약 11.8초</div></div></a>
+    <a class="card" href="motion07.html"><div class="thumb" style="background-image:url(thumbs/motion07.jpg)"></div><div class="meta"><div class="num">07 모션</div><div class="name">AI 패널 → 댓글 카드 → 로고 엔딩</div><div class="desc">06과 같고, 댓글창이 좌우 여백 있는 둥근 카드로 떠올라요 · 약 6.3초</div></div></a>
+    <a class="card" href="motion08.html"><div class="thumb" style="background-image:url(thumbs/motion08.jpg)"></div><div class="meta"><div class="num">08 모션</div><div class="name">댓글 카드 + 하트</div><div class="desc">채팅창·로고 엔딩 없이 댓글 카드만 · 하트가 길게 떠올라요 · 약 8.1초</div></div></a>
+    <a class="card" href="motion09.html"><div class="thumb" style="background-image:url(thumbs/motion09.jpg)"></div><div class="meta"><div class="num">09 모션</div><div class="name">모델 배지 + 키워드 + 별</div><div class="desc">배지 사이로 키워드가 나오고 별로 모여요 · 약 2.7초</div></div></a>
+    <a class="card" href="motion10.html"><div class="thumb" style="background-image:url(thumbs/motion10.jpg)"></div><div class="meta"><div class="num">10 모션</div><div class="name">기능 카드</div><div class="desc">흰 화면에서 기능 카드가 한 장씩 넘어가요 · 약 3.4초</div></div></a>
+    <a class="card" href="motion11.html"><div class="thumb" style="background-image:url(thumbs/motion11.jpg)"></div><div class="meta"><div class="num">11 모션</div><div class="name">카드 등장</div><div class="desc">이미지 1~3장이 종이처럼 날아 들어와요 · 약 2.5초</div></div></a>
+    <a class="card" href="motion12.html"><div class="thumb" style="background-image:url(thumbs/motion12.jpg)"></div><div class="meta"><div class="num">12 모션</div><div class="name">노드 그래프 → 줌아웃 타이틀</div><div class="desc">프롬프트 입력·노드 그래프 → 줌아웃되며 큰 타이틀 · 약 3.8초</div></div></a>
+  </div>
+  <div class="tip"><b>사용 팁</b> · 편집 내용(넣은 이미지 포함)은 저장되지 않아요. 새로고침하면 기본값으로 돌아가니, 다 만들면 바로 MP4로 내보내세요. 내보내기는 Chrome 에서만 되고 인터넷 연결이 필요해요.</div>
+</div>
+<a href="../index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 전체 목록</a></body>
+</html>

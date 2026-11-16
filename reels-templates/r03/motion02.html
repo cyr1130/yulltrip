@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 02</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets_m02.js"></script><script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U03; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#f7f9fb", keyBg: "#00ff00",
+  img: { logo1: [], logo2: [], product: [], presenter: [] },
+  brand1: "yourbrand", brand1Font: "serif", brand2: "Partner Studio", brand2Font: "sans", times: "x",
+  prompt: "Make a month of content for my product.\nResearch, generate, **post to Instagram.**\n**Super viral,** please",
+  attachAt: 0.32, showProduct: true, showPresenter: true,
+  colors: { brand1: "#111111", brand2: "#111111", times: "#b9bec4", card: "#ffffff", cardLine: "#e3e6ea", text: "#1d1f22", caret: "#1d1f22",
+            icon: "#8a9096", sendOn: "#111111", sendIcon: "#ffffff", ring: "#d4f53c", presenterBg: "#c9d3dc" },
+  d1: 16, d2: 64, d3: 18,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3; return { s2: a, s3: a + b, total: a + b + c }; };
+const im = k => U.img(S, "img." + k);
+const CARD = { x: 150, y: 1040, w: 1140 }, FS = 42, LH = 58, PAD = 44, TH = 170;
+const fontOf = (k, size, weight) => (S[k] === "serif" ? `${weight} ${size}px Georgia, "Times New Roman", serif` : `${weight} ${size}px ${E.SANS}`);
+
+// **굵게** 를 지원하는 타이핑 레이아웃 (n 글자까지)
+function segs(text) { const out = []; String(text).split("**").forEach((t, i) => { if (t) out.push({ t, b: i % 2 === 1 }); }); return out; }
+function layout(text, n, maxW) {
+  const lines = [[]]; let w = 0, count = 0;
+  const F = b => `${b ? 700 : 400} ${FS}px ${E.SANS}`;
+  for (const sg of segs(text)) {
+    for (const tok of sg.t.split(/(\s+|\n)/)) {
+      if (!tok || count >= n) continue;
+      const take = Array.from(tok).slice(0, n - count).join(""); count += Array.from(take).length;
+      if (tok === "\n" || /\n/.test(tok)) { lines.push([]); w = 0; continue; }
+      ctx.font = F(sg.b); const tw = ctx.measureText(take).width;
+      if (w + tw > maxW && w > 0 && !/^\s+$/.test(tok)) { lines.push([]); w = 0; }
+      if (w === 0 && /^\s+$/.test(tok)) continue;
+      lines[lines.length - 1].push({ t: take, b: sg.b, x: w }); w += tw;
+    }
+  }
+  return lines;
+}
+const totalChars = () => Array.from(segs(S.prompt).map(s => s.t).join("")).length;
+
+function brandRow(i, x, y, a) {
+  if (a <= 0) return;
+  const key = "brand" + i, logo = im("logo" + i), size = i === 1 ? 104 : 84;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(0, lerp(40, 0, easeOut(a)));
+  ctx.font = fontOf(key + "Font", size, i === 1 ? 700 : 600); const tw = ctx.measureText(S[key]).width, lw = logo ? size * 1.05 : 0, gap = logo ? size * .3 : 0;
+  const x0 = x - (tw + lw + gap) / 2;
+  if (logo) { const s = lw / Math.max(logo.naturalWidth, logo.naturalHeight); ctx.drawImage(logo, x0, y - logo.naturalHeight * s / 2, logo.naturalWidth * s, logo.naturalHeight * s); }
+  ctx.fillStyle = S.colors[key]; ctx.textBaseline = "middle"; ctx.fillText(S[key], x0 + lw + gap, y + 4);
+  ctx.restore();
+}
+
+E.start({
+  title: "모션 02 · 로고 + 프롬프트 입력", group: "릴스03 템플릿", file: "motion02", state: S, alpha: true,
+  intro: "흰 화면 위쪽에 두 브랜드 이름이 차례로 떠오르고, 입력 카드에 문장이 타이핑돼요. 중간에 제품 사진이 첨부되며 글자를 아래로 밀고, 끝나면 전송 버튼이 켜져요. 오른쪽 아래엔 원형 발표자 사진이 떠 있어요.",
+  images: { "img.product": [{ file: "m02_product.jpg" }], "img.presenter": [{ file: "m02_presenter.jpg" }] },
+  sections: [
+    { title: "공통", hint: "크로마키로 바꾸면 그림자 없이 단색 배경이 돼요.",
+      rows: [...U.bgRows,
+        [{ type: "bool", key: "showPresenter", label: "원형 발표자 사진" }, { type: "images", key: "img.presenter", label: "발표자 사진" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.ring", label: "발표자 테두리 (돌아가는 선)" }, { type: "color", key: "colors.presenterBg", label: "발표자 (사진 없을 때)" }]] },
+    { title: "① 로고 등장", durKey: "1", hint: "로고 이미지를 넣으면 이름 왼쪽에 붙어요. 사이 기호는 비우면 안 보여요.",
+      rows: [[{ key: "brand1", label: "위 브랜드 이름" }, { type: "select", key: "brand1Font", label: "글꼴", options: [["serif", "세리프"], ["sans", "고딕"]] }],
+        [{ type: "images", key: "img.logo1", label: "위 로고 이미지 (선택)" }],
+        [{ key: "brand2", label: "아래 브랜드 이름" }, { type: "select", key: "brand2Font", label: "글꼴", options: [["sans", "고딕"], ["serif", "세리프"]] }],
+        [{ type: "images", key: "img.logo2", label: "아래 로고 이미지 (선택)" }],
+        [{ key: "times", label: "사이 기호" }, { type: "number", key: "d1", label: "길이 (프레임)", min: 6, max: 60 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.brand1", label: "위 브랜드" }, { type: "color", key: "colors.brand2", label: "아래 브랜드" }], [{ type: "color", key: "colors.times", label: "사이 기호" }]] },
+    { title: "② 프롬프트 타이핑", durKey: "2", hint: "**글자** 처럼 감싸면 굵게, 엔터는 줄바꿈이에요. 첨부 시점은 0~1 (타이핑 진행 비율).",
+      rows: [[{ type: "textarea", key: "prompt", label: "입력되는 문장" }],
+        [{ type: "bool", key: "showProduct", label: "제품 사진 첨부" }, { type: "images", key: "img.product", label: "제품 사진" }],
+        [{ type: "number", key: "attachAt", label: "첨부 시점 (0~1)", min: 0, max: 1 }, { type: "number", key: "d2", label: "길이 (프레임)", min: 12, max: 240 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.card", label: "입력 카드" }, { type: "color", key: "colors.cardLine", label: "카드 테두리" }],
+        [{ type: "color", key: "colors.text", label: "입력 글자" }, { type: "color", key: "colors.caret", label: "입력 커서" }], [{ type: "color", key: "colors.icon", label: "+ · ↑ 아이콘" }]] },
+    { title: "③ 전송 버튼 켜짐", durKey: "3",
+      rows: [[{ type: "number", key: "d3", label: "길이 (프레임)", min: 4, max: 90 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.sendOn", label: "켜진 전송 버튼" }, { type: "color", key: "colors.sendIcon", label: "켜진 화살표" }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(), c = S.colors; U.bg(S);
+    const k1 = +S.d1 / 16;
+    brandRow(1, 720, 700, prog(f, 0, 8 * k1));
+    if (S.times) { const a = prog(f, 3 * k1, 9 * k1); ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = c.times; ctx.font = `300 44px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.times, 720, 818); ctx.restore(); }
+    brandRow(2, 720, 925, prog(f, 5 * k1, 12 * k1));
+    // 입력 카드
+    const ca = easeOut(prog(f, 8 * k1, 15 * k1));
+    const tp = prog(f - t.s2, 2, +S.d2 - 4), n = Math.round(totalChars() * tp);
+    const at = clamp(+S.attachAt), ap = S.showProduct ? prog(tp, at, at + .1) : 0, push = easeOut(prog(ap, 0, .45)), apE = back(prog(ap, .3, 1));
+    const lines = layout(S.prompt, n, CARD.w - PAD * 2);
+    const textY = CARD.y + PAD + (TH + 30) * push;
+    const minH = 260 + (TH + 30) * push, h = Math.max(minH, textY - CARD.y + Math.max(1, lines.length) * LH + 120);
+    if (ca > 0) {
+      ctx.save(); ctx.globalAlpha *= ca; const sc = lerp(.96, 1, ca); ctx.translate(720, CARD.y); ctx.scale(sc, sc); ctx.translate(-720, -CARD.y);
+      U.shadow(S, () => { E.rr(CARD.x, CARD.y, CARD.w, h, 34); ctx.fillStyle = c.card; ctx.fill(); }, 40, 12, "rgba(20,30,40,.08)");
+      E.rr(CARD.x, CARD.y, CARD.w, h, 34); ctx.strokeStyle = c.cardLine; ctx.lineWidth = 3; ctx.stroke();
+      if (ap > .3) { const s = TH * lerp(.2, 1, apE); ctx.save(); ctx.globalAlpha *= clamp((ap - .3) * 4); U.photo(im("product"), CARD.x + PAD + (TH - s) / 2, CARD.y + PAD + (TH - s) / 2, s, s, 22 * s / TH, "#d0d6dc"); ctx.restore(); }
+      ctx.textBaseline = "top"; ctx.fillStyle = c.text;
+      lines.forEach((ln, i) => ln.forEach(p => { ctx.font = `${p.b ? 700 : 400} ${FS}px ${E.SANS}`; ctx.fillText(p.t, CARD.x + PAD + p.x, textY + i * LH); }));
+      // 커서
+      if (f >= t.s2 && f < t.s3 + 6 && Math.floor(f / 6) % 2 === 0) { const li = lines.length - 1, last = lines[li], lp = last[last.length - 1];
+        let cx = CARD.x + PAD; if (lp) { ctx.font = `${lp.b ? 700 : 400} ${FS}px ${E.SANS}`; cx += lp.x + ctx.measureText(lp.t).width + 4; }
+        ctx.fillStyle = c.caret; ctx.fillRect(cx, textY + li * LH + 2, 3, FS * 1.15); }
+      // + / ↑
+      const by = CARD.y + h - 62; ctx.strokeStyle = c.icon; ctx.lineWidth = 4; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(CARD.x + PAD, by); ctx.lineTo(CARD.x + PAD + 36, by); ctx.moveTo(CARD.x + PAD + 18, by - 18); ctx.lineTo(CARD.x + PAD + 18, by + 18); ctx.stroke();
+      const on = easeOut(prog(f - t.s3, 0, 6)), bx = CARD.x + CARD.w - PAD - 26, bs = 1 + .12 * Math.sin(Math.PI * prog(f - t.s3, 0, 8));
+      if (on > 0) { ctx.save(); ctx.globalAlpha *= on; ctx.beginPath(); ctx.arc(bx, by, 36 * bs, 0, 7); ctx.fillStyle = c.sendOn; ctx.fill(); ctx.restore(); }
+      ctx.strokeStyle = on > .5 ? c.sendIcon : c.icon; ctx.lineWidth = 4.5; ctx.lineJoin = "round";
+      ctx.beginPath(); ctx.moveTo(bx, by + 18 * bs); ctx.lineTo(bx, by - 18 * bs); ctx.moveTo(bx - 14 * bs, by - 4 * bs); ctx.lineTo(bx, by - 18 * bs); ctx.lineTo(bx + 14 * bs, by - 4 * bs); ctx.stroke();
+      ctx.restore();
+    }
+    // 원형 발표자
+    if (S.showPresenter) {
+      const pa = back(prog(f, 4, 14)), px = 1030, py = 1960, r = 250 * lerp(.6, 1, pa);
+      if (pa > 0) { ctx.save(); ctx.globalAlpha *= clamp(pa * 2);
+        U.circle(im("presenter"), px, py, r, c.presenterBg);
+        const rot = f * .09; ctx.strokeStyle = c.ring; ctx.lineWidth = 9; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(px, py, r + 2, rot, rot + Math.PI * .75); ctx.stroke(); ctx.restore(); }
+    }
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 04</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets_m04.js"></script><script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U03; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#f7f9fb", keyBg: "#00ff00",
+  area: "top",
+  img: { pics: [] },
+  days: "SUN, MON, TUE, WED, THUR, FRI, SAT",
+  startDate: 28, monthLen: 31, firstOfMonth: 1, targetDate: 1,
+  schedule: "1: UGC, Gift\n2: UGC, Reels\n3: UGC, Giveaway\n4: Product\n5: UGC, Quotes\n6: Edu\n7: UGC, Quotes\n8: Edu\n9: UGC\n10: Lifestyle, Product\n11: UGC, Reels\n12: Giveaway\n13: UGC, Gift\n14: UGC, Edu\n15: Reels\n16: UGC\n17: UGC, Lifestyle\n18: Quotes\n19: UGC, Product\n20: Edu\n21: UGC, Reels",
+  tag1: "UGC", tag2: "Gift", tag3: "Reels", tag4: "Quotes", tag5: "Edu", tag6: "Lifestyle", tag7: "Product", tag8: "Giveaway",
+  postText: "Post",
+  colors: { page: "#fbfcfd", grid: "#eef0f3", day: "#9aa0a6", date: "#1d1f22", dateOff: "#b7bcc2",
+            t1: "#2f8fe8", t2: "#f0a020", t3: "#e5399a", t4: "#8a4fe0", t5: "#2f8fe8", t6: "#3dbb4a", t7: "#f07a20", t8: "#f0a020",
+            hand: "#ffffff", handLine: "#111111", post: "#ffffff", postText: "#ffffff" },
+  d1: 22, d2: 26, d3: 22,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3; return { s2: a, s3: a + b, total: a + b + c }; };
+const CW = 320, CHh = 330, HEAD = 70;
+let ROWS = 6;
+const VP = () => S.area === "full" ? { y: 0, h: H } : { y: 0, h: 1280 };
+
+function tagColor(name) { for (let i = 1; i <= 8; i++) if (String(S["tag" + i]).trim().toLowerCase() === name.toLowerCase()) return S.colors["t" + i]; return S.colors.t1; }
+let schedCache = { src: null, map: {} };
+function sched() { if (schedCache.src === S.schedule) return schedCache.map; const m = {};
+  String(S.schedule).split("\n").forEach(l => { const mm = l.match(/^\s*(\d+)\s*[:：]\s*(.*)$/); if (mm) m[+mm[1]] = mm[2].split(/[,，]/).map(s => s.trim()).filter(Boolean); });
+  schedCache = { src: S.schedule, map: m }; return m; }
+// 셀 i (0부터) → 날짜, 이번 달 여부
+function cellDate(i) { const st = +S.startDate, ml = +S.monthLen, prevLen = 31; const firstIdx = (prevLen - st + 1); // 이번 달 1일의 셀 위치
+  if (i < firstIdx) return { d: st + i, cur: false }; const d = i - firstIdx + 1; return d <= ml ? { d, cur: true } : { d: d - ml, cur: false }; }
+const targetCell = () => { for (let i = 0; i < ROWS * 7; i++) { const c = cellDate(i); if (c.cur && c.d === +S.targetDate) return i; } return 4; };
+const pics = () => (S.img.pics || []).map(o => o.img).filter(Boolean);
+
+function stackCards(cx, cy, n, lift, press) {
+  const P = pics(), a = P.length ? P[n % P.length] : null, b = P.length ? P[(n * 3 + 1) % P.length] : null;
+  const w = 150, h = 200;
+  ctx.save(); ctx.translate(cx - 30, cy - 10); ctx.rotate(-.12); U.shadow(S, () => U.photo(a, -w * .45, -h * .45, w * .9, h * .9, 14, "#d5dbe1"), 10, 4, "rgba(0,0,0,.15)"); ctx.restore();
+  const k = (1 + .07 * lift) * (1 - .05 * press);
+  ctx.save(); ctx.translate(cx + 26, cy - 6 - 10 * lift); ctx.rotate(.09 - .04 * lift); ctx.scale(k, k);
+  U.shadow(S, () => U.photo(b, -w / 2, -h / 2, w, h, 16, "#c9d0d7"), 12 + 26 * lift, 5 + 10 * lift, `rgba(0,0,0,${.18 + .12 * lift})`);
+  ctx.restore();
+}
+function chip(text, x, y, color) {
+  ctx.font = `500 30px ${E.SANS}`; const w = ctx.measureText(text).width + 22;
+  E.rr(x, y - 22, w, 44, 8); ctx.fillStyle = S.colors.page; ctx.fill(); ctx.fillStyle = E.hexA(color, .16); ctx.fill(); ctx.fillStyle = color; ctx.textBaseline = "middle"; ctx.fillText(text, x + 11, y + 1);
+}
+function calendar(lift, press, skipTarget) {
+  const c = S.colors, days = String(S.days).split(",").map(s => s.trim()), sm = sched(), tc = targetCell();
+  ctx.fillStyle = c.page; ctx.fillRect(-1200, -1200, CW * 7 + 2400, HEAD + CHh * ROWS + 2400);
+  ctx.strokeStyle = c.grid; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 7; i++) { ctx.moveTo(i * CW, 0); ctx.lineTo(i * CW, HEAD + CHh * ROWS); }
+  for (let r = 0; r <= ROWS; r++) { ctx.moveTo(0, HEAD + r * CHh); ctx.lineTo(CW * 7, HEAD + r * CHh); } ctx.stroke();
+  ctx.fillStyle = c.day; ctx.font = `500 28px ${E.SANS}`; ctx.textBaseline = "middle"; days.forEach((d, i) => ctx.fillText(d, i * CW + 22, HEAD / 2 + 4));
+  const drawCell = i => { const col = i % 7, row = Math.floor(i / 7), x = col * CW, y = HEAD + row * CHh, cd = cellDate(i);
+    ctx.fillStyle = cd.cur ? c.date : c.dateOff; ctx.font = `500 34px ${E.SANS}`; ctx.textBaseline = "top"; ctx.fillText(cd.d, x + 22, y + 22);
+    const tags = cd.cur ? sm[cd.d] : null; if (!tags || !tags.length) return;
+    stackCards(x + CW / 2 + 10, y + CHh / 2 + 10, i, i === tc ? lift : 0, i === tc ? press : 0);
+    tags.slice(0, 2).forEach((tg, k) => chip(tg, x + 22, y + CHh - 96 + k * 54, tagColor(tg))); };
+  for (let i = 0; i < ROWS * 7; i++) if (i !== tc) drawCell(i);
+  if (!skipTarget) drawCell(tc);
+  return tc;
+}
+function camAt(f) {
+  const t = T(), vp = VP(), tc = targetCell(), col = tc % 7, row = Math.floor(tc / 7);
+  const tx = col * CW + CW / 2 + 70, ty0 = vp.h === H ? HEAD + CHh * 3 : HEAD + CHh * 1.6;
+  const s0 = vp.h === H ? 1.3 : 1, s1 = 2.25, z = easeInOut(prog(f, 3, +S.d1));
+  const zoomOutX = col * CW + CW * .3, zoomOutY = ty0;
+  const tyIn = vp.h === H ? HEAD + row * CHh + CHh * .55 : 35 + (vp.h / 2 - 110) / s1;
+  return { s: Math.exp(lerp(Math.log(s0), Math.log(s1), z)), x: lerp(zoomOutX, tx, z), y: lerp(zoomOutY, tyIn, z) };
+}
+
+E.start({
+  title: "모션 04 · 콘텐츠 캘린더 줌 → Post 탭", group: "릴스03 템플릿", file: "motion04", state: S, alpha: true,
+  intro: "사진 카드와 태그가 놓인 콘텐츠 캘린더에서 화면이 목표 날짜 칸으로 확대되고, 손가락 커서가 카드를 누르면 카드가 살짝 들리며 반투명 'Post' 버튼이 떠요.",
+  images: { "img.pics": [{ file: "m04_a.jpg" }, { file: "m04_b.jpg" }, { file: "m04_c.jpg" }, { file: "m04_d.jpg" }] },
+  sections: [
+    { title: "공통", hint: "'위쪽 절반'이면 캘린더가 화면 위 절반에만 나오고, 아래는 배경(또는 크로마키)이라 발표자 영상을 깔 수 있어요.",
+      rows: [[{ type: "select", key: "area", label: "캘린더 영역", options: [["top", "위쪽 절반"], ["full", "전체 화면"]] }], ...U.bgRows,
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.page", label: "캘린더 바탕" }, { type: "color", key: "colors.grid", label: "칸 선" }],
+        [{ type: "color", key: "colors.day", label: "요일" }, { type: "color", key: "colors.date", label: "날짜" }], [{ type: "color", key: "colors.dateOff", label: "지난달·다음달 날짜" }]] },
+    { title: "① 캘린더 + 확대", durKey: "1", hint: "날짜별 태그는 '날짜: 태그, 태그' 한 줄씩 (태그 2개까지). 태그가 있는 날만 사진 카드가 놓여요. 사진은 칸마다 돌아가며 쓰여요.",
+      rows: [[{ type: "images", key: "img.pics", label: "캘린더 사진들 (여러 장)", max: 12 }],
+        [{ key: "days", label: "요일 (쉼표로)" }],
+        [{ type: "number", key: "startDate", label: "첫 칸 날짜 (지난달)", min: 1, max: 31 }, { type: "number", key: "targetDate", label: "확대할 날짜", min: 1, max: 31 }],
+        [{ type: "number", key: "monthLen", label: "이번 달 일수", min: 28, max: 31 }, { type: "number", key: "d1", label: "길이 (프레임)", min: 6, max: 90 }],
+        [{ type: "textarea", key: "schedule", label: "날짜별 태그" }],
+        [{ type: "sub", label: "태그 이름 · 색" }],
+        [{ key: "tag1", label: "태그 1" }, { type: "color", key: "colors.t1", label: "색" }], [{ key: "tag2", label: "태그 2" }, { type: "color", key: "colors.t2", label: "색" }],
+        [{ key: "tag3", label: "태그 3" }, { type: "color", key: "colors.t3", label: "색" }], [{ key: "tag4", label: "태그 4" }, { type: "color", key: "colors.t4", label: "색" }],
+        [{ key: "tag5", label: "태그 5" }, { type: "color", key: "colors.t5", label: "색" }], [{ key: "tag6", label: "태그 6" }, { type: "color", key: "colors.t6", label: "색" }],
+        [{ key: "tag7", label: "태그 7" }, { type: "color", key: "colors.t7", label: "색" }], [{ key: "tag8", label: "태그 8" }, { type: "color", key: "colors.t8", label: "색" }]] },
+    { title: "② 손가락 커서", durKey: "2",
+      rows: [[{ type: "number", key: "d2", label: "길이 (프레임)", min: 8, max: 90 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.hand", label: "커서" }, { type: "color", key: "colors.handLine", label: "커서 테두리" }]] },
+    { title: "③ Post 버튼", durKey: "3",
+      rows: [[{ key: "postText", label: "버튼 글자" }, { type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 90 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.post", label: "버튼 (반투명)" }, { type: "color", key: "colors.postText", label: "버튼 글자" }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(), c = S.colors, vp = VP(); ROWS = vp.h === H ? 8 : 6; U.bg(S);
+    const cam = camAt(f), lift = easeOut(prog(f - t.s2, 4, 14)), tapT = f - t.s3, press = Math.exp(-Math.pow((tapT - 2) / 2.2, 2));
+    ctx.save(); ctx.beginPath(); ctx.rect(0, vp.y, W, vp.h); ctx.clip();
+    ctx.translate(720, vp.y + vp.h / 2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.x, -cam.y);
+    const tc = calendar(lift, press);
+    const col = tc % 7, row = Math.floor(tc / 7), cx = col * CW + CW / 2 + 36, cy = HEAD + row * CHh + CHh / 2 - 10;
+    // Post 버튼 (뒤를 흐리게 비추는 반투명)
+    const pa = easeOut(prog(tapT, 1, 8));
+    if (pa > 0) { const m = ctx.getTransform(), bw = 200 * lerp(.7, 1, back(pa)), bh = 76 * lerp(.7, 1, back(pa)), bx = cx - bw / 2, by = cy - 60 - bh / 2;
+      ctx.save(); ctx.globalAlpha *= pa; E.rr(bx, by, bw, bh, bh / 2); ctx.clip();
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = "blur(14px)"; ctx.drawImage(ctx.canvas, 0, 0); ctx.filter = "none"; ctx.setTransform(m);
+      ctx.fillStyle = E.hexA(c.post, .38); ctx.fillRect(bx, by, bw, bh); ctx.restore();
+      ctx.save(); ctx.globalAlpha *= pa; ctx.fillStyle = c.postText; ctx.font = `500 ${46 * bw / 200}px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.postText, cx, by + bh / 2 + 2); ctx.restore(); }
+    // 손가락 커서
+    const ha = prog(f - t.s2, 0, 6);
+    if (ha > 0) { const hx = lerp(cx + 260, cx + 30, easeOut(prog(f - t.s2, 0, 12))) + Math.sin((f - t.s2) * .5) * 4 * (1 - prog(f - t.s2, 12, 18)),
+        hy = lerp(cy + 260, cy + 10, easeOut(prog(f - t.s2, 0, 12))) + 6 * press;
+      U.hand(hx, hy, 2.2 * (1 - .1 * press), c.hand, c.handLine, clamp(ha * 1.5), U.green(S)); }
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

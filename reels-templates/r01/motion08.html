@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 08</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf, kf2 } = E;
+
+const S = {
+  keyMode: "green", keyBg: "#00ff00", accent: "#cdfd1a",
+  img: { avatar: [], replyAvatar: [] },
+  sheetTitle: "댓글", cPlaceholder: "댓글 달기...", postBtn: "게시", keyword: "뉴테이크", username: "@you", timeAgo: "방금", likedNote: "",
+  replyName: "@creator", replyTime: "방금", replyText: "보내드렸어요! DM 확인해 주세요 💌",
+  heartCount: 14, heartRise: 620,
+  colors: { sheet: "#151617", sheetTitle: "#ececec", cInput: "#1f2022", cInputLine: "#2e3033", cPlaceholder: "#7d7f82", cInputText: "#f2f2f2",
+            avatar: "#cdfd1a", post: "#cdfd1a", username: "#8a8c90", commentText: "#f2f2f2", heartOff: "#5f6165", heartOn: "#ff3b4f", floatHeart: "#ff3b4f", replyAvatar: "#8b6cf6", replyText: "#e6e6e6" },
+  d3: 110, d6: 84,
+};
+const T = () => { const c = +S.d3, h = +S.d6; return { s3: 0, total: c + h }; };
+const im = k => (S.img[k][0] || {}).img;
+const CARD = { x: 63, y: 1219, w: 1314, h: 938, r: 56 }, INPUT = { x: 36, y: 752, w: 1242, h: 150 }, HX = 1204;
+// ② 댓글 시트 (82프레임 기준 타이밍, k 로 길이에 맞춰 늘고 줄어듦)
+function avatarCircle(x, y, r, key, color) {
+  const a = im(key); ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+  if (a) { ctx.clip(); const sc = Math.max(2 * r / a.naturalWidth, 2 * r / a.naturalHeight); ctx.drawImage(a, x - a.naturalWidth * sc / 2, y - a.naturalHeight * sc / 2, a.naturalWidth * sc, a.naturalHeight * sc); }
+  else { ctx.fillStyle = color; ctx.fill(); }
+  ctx.restore();
+}
+function reply(g, k) {   // 게시자 답글: 작성 중 점 → 답글 등장 → 글자 타이핑 (원댓글과 같은 크기)
+  const C = S.colors, AX = 260, AY = 380, TX = AX + 74;
+  const dots = prog(g, 38 * k, 45 * k);
+  if (dots > 0 && dots < 1) {
+    const da = Math.min(easeOut(prog(dots, 0, .2)), 1 - easeIn(prog(dots, .85, 1)));
+    ctx.save(); ctx.globalAlpha *= da; avatarCircle(AX, AY, 46, "replyAvatar", C.replyAvatar);
+    E.rr(TX, AY - 36, 160, 72, 36); ctx.fillStyle = C.cInput; ctx.fill();
+    for (let i = 0; i < 3; i++) { const bo = Math.sin(g * .9 - i * .9) * 7; ctx.beginPath(); ctx.arc(TX + 44 + i * 36, AY + Math.min(0, bo), 10, 0, 7); ctx.fillStyle = C.username; ctx.fill(); }
+    ctx.restore();
+  }
+  const rp = easeOut(prog(g, 44 * k, 48 * k)); if (rp <= 0) return;
+  ctx.save(); ctx.globalAlpha *= rp; ctx.translate(0, lerp(-24, 0, rp));
+  avatarCircle(AX, AY, 46, "replyAvatar", C.replyAvatar);
+  ctx.textBaseline = "middle"; ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.replyName, TX, AY - 32);
+  let nx = TX + ctx.measureText(S.replyName).width + 14;
+  if (S.replyTime) { ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.replyTime, nx, AY - 32); }
+  const ch = Array.from(S.replyText), txt = ch.slice(0, Math.round(ch.length * prog(g, 46 * k, 58 * k))).join("");
+  ctx.textBaseline = "top"; ctx.fillStyle = C.replyText; const ly = E.wrap(txt, TX, AY + 10, 900, 56, `700 42px ${E.SANS}`, `700 42px ${E.SANS}`);
+  if (g < 60 * k && Math.floor(g / 3) % 2 === 0) { ctx.fillStyle = S.accent; ctx.font = `700 42px ${E.SANS}`; const last = txt.split("\n").pop(); ctx.fillRect(Math.min(TX + ctx.measureText(last).width + 4, TX + 900), ly, 4, 48); }
+  ctx.restore();
+}
+function heartPath(cx, cy, sz) { ctx.beginPath(); ctx.moveTo(cx, cy + sz * .9); ctx.bezierCurveTo(cx - sz * 1.7, cy - sz * .1, cx - sz * .9, cy - sz * 1.35, cx, cy - sz * .45); ctx.bezierCurveTo(cx + sz * .9, cy - sz * 1.35, cx + sz * 1.7, cy - sz * .1, cx, cy + sz * .9); ctx.closePath(); }
+function sheet(g, k) {
+  const C = S.colors, ch = Array.from(S.keyword), tp = prog(g, 14 * k, 22 * k), posted = g >= 31.5 * k;
+  const typed = posted ? "" : ch.slice(0, Math.round(ch.length * tp)).join("");
+  if (S.keyMode === "green") { E.rr(0, 0, CARD.w, CARD.h, CARD.r); ctx.fillStyle = C.sheet; ctx.fill(); } else E.shadowed(() => { E.rr(0, 0, CARD.w, CARD.h, CARD.r); ctx.fillStyle = C.sheet; ctx.fill(); }, 50, 12, "rgba(0,0,0,.45)");   // 크로마키일 땐 그림자 없음
+  E.rr(0, 0, CARD.w, CARD.h, CARD.r); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = C.sheetTitle; ctx.font = `700 46px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.sheetTitle, CARD.w / 2, 100); ctx.textAlign = "left";
+  const cp = easeOut(prog(g, 32 * k, 36 * k));
+  if (cp > 0) {
+    ctx.save(); ctx.globalAlpha *= cp; ctx.translate(0, lerp(-24, 0, cp));
+    avatarCircle(140, 228, 46, "avatar", C.avatar);
+    ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(`${S.username}  ${S.timeAgo}`, 214, 196);
+    ctx.font = `700 42px ${E.SANS}`; ctx.fillStyle = C.commentText; ctx.fillText(S.keyword, 214, 260);
+    const ln = easeOut(prog(g, 66 * k, 70 * k)); if (ln > 0 && S.likedNote) { ctx.globalAlpha *= ln; ctx.font = `500 26px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.likedNote, 214, 308); ctx.globalAlpha /= ln; }
+    const hp = prog(g, 62 * k, 66 * k), hk = hp > 0 ? lerp(.3, 1, back(hp)) : 1;
+    ctx.save(); ctx.translate(HX, 228); ctx.scale(hk, hk);
+    if (hp > 0) { heartPath(0, 0, 26); ctx.fillStyle = C.heartOn; ctx.fill(); } else { heartPath(0, 0, 24); ctx.strokeStyle = C.heartOff; ctx.lineWidth = 4; ctx.stroke(); }
+    ctx.restore(); ctx.restore();
+    reply(g, k);
+  }
+  return typed;
+}
+function inputBar(g, k, typed) {
+  const C = S.colors, I = INPUT;
+  E.rr(I.x, I.y, I.w, I.h, I.h / 2); ctx.fillStyle = C.cInput; ctx.fill(); ctx.strokeStyle = C.cInputLine; ctx.lineWidth = 3; ctx.stroke();
+  avatarCircle(I.x + 84, I.y + I.h / 2, 46, "avatar", C.avatar);
+  ctx.textBaseline = "middle"; ctx.font = `${typed ? 600 : 400} 44px ${E.SANS}`;
+  if (typed) { ctx.fillStyle = C.cInputText; ctx.fillText(typed, I.x + 164, I.y + I.h / 2 + 2); if (Math.floor(g / 3) % 2 === 0) { ctx.fillStyle = S.accent; ctx.fillRect(I.x + 170 + ctx.measureText(typed).width, I.y + 50, 4, 60); } }
+  else { ctx.fillStyle = C.cPlaceholder; ctx.fillText(S.cPlaceholder, I.x + 164, I.y + I.h / 2 + 2); }
+  const press = Math.exp(-Math.pow((g - 31 * k) / (1.2 * k), 2));
+  ctx.save(); ctx.globalAlpha *= typed ? 1 : .5; ctx.fillStyle = C.post; ctx.font = `700 ${42 * (1 - .15 * press)}px ${E.SANS}`; ctx.textAlign = "right"; ctx.fillText(S.postBtn, I.x + I.w - 48, I.y + I.h / 2 + 2); ctx.restore();
+}
+// 떠오르는 하트: 하트가 눌린 순간부터 끝날 때까지 여러 개가 흩날리며 길게 올라감
+function rnd(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function floatHearts(t, mx, my) {   // t = 하트 눌린 뒤 프레임
+  if (t <= 0) return;
+  const n = Math.max(1, Math.round(+S.heartCount)), life = 42, rise = +S.heartRise;
+  const span = Math.max(1, T().total - (62 * +S.d3 / 82) - life * .55);   // 마지막 하트도 화면 끝 전에 거의 다 올라가게
+  for (let i = 0; i < n; i++) {
+    const st = n > 1 ? i * span / (n - 1) * (0.85 + .3 * rnd(i)) : 0, p = (t - st) / (life * (0.85 + .35 * rnd(i + 50)));
+    if (p <= 0 || p >= 1) continue;
+    const dir = rnd(i + 9) - .5, x = mx - 10 + dir * 90 + Math.sin(i * 2.1 + p * 5) * 34, y = my - 20 - easeOut(p) * rise * (0.75 + .4 * rnd(i + 20));
+    const sz = 24 * (0.7 + .6 * rnd(i + 30)) * lerp(.4, 1, back(clamp(p * 3)));
+    ctx.save(); ctx.globalAlpha *= 1 - easeIn(prog(p, .55, 1)); ctx.translate(x, y); ctx.rotate(dir * .7 + Math.sin(p * 6 + i) * .15); heartPath(0, 0, sz); ctx.fillStyle = S.colors.floatHeart; ctx.fill(); ctx.restore();
+  }
+}
+
+E.start({
+  title: "모션 08 · 댓글 카드 + 하트", group: "릴스01 템플릿", file: "motion08", state: S, alpha: true,
+  intro: "채팅창과 로고 엔딩 없이 댓글 카드만 나와요. 키워드가 입력·게시되고 게시자가 답글을 단 뒤 하트가 눌리고, 하트가 여러 개 길게 떠올라요.",
+  sections: [
+    { title: "① 댓글", durKey: "3", hint: "좌우 여백이 있는 둥근 댓글 카드가 화면 아래쪽(인스타 UI 위)에 떠올라 키워드가 입력·게시되고 게시자가 답글을 단 뒤 하트가 눌려요. 카드 바깥은 기본 초록(크로마키)이라 캡컷에서 크로마키로 지우면 돼요. 아래에서 '투명'으로 바꾸면 투명 배경 내보내기도 돼요.",
+      rows: [[{ type: "select", key: "keyMode", label: "배경 없는 부분", options: [["green", "초록 배경 (크로마키)"], ["clear", "투명 (투명 배경 내보내기용)"]] }, { type: "color", key: "keyBg", label: "크로마키 색" }],
+        [{ key: "sheetTitle", label: "카드 제목" }, { key: "cPlaceholder", label: "입력칸 안내 문구" }], [{ key: "keyword", label: "입력되는 댓글 (키워드)" }, { key: "postBtn", label: "게시 버튼 글자" }],
+        [{ key: "username", label: "아이디" }, { key: "timeAgo", label: "시간 표시" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 30, max: 200 }],
+        [{ type: "images", key: "img.avatar", label: "댓글 단 사람 프로필 (입력창·댓글에 같이 쓰여요, 비우면 색 원)" }],
+        [{ type: "sub", label: "게시자 답글" }], [{ type: "images", key: "img.replyAvatar", label: "게시자 프로필 사진" }, { key: "replyName", label: "게시자 이름" }],
+        [{ key: "replyTime", label: "답글 시간 표시" }], [{ type: "textarea", key: "replyText", label: "답글 내용 (한 글자씩 써짐)" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.sheet", label: "댓글 카드" }, { type: "color", key: "colors.sheetTitle", label: "카드 제목" }], [{ type: "color", key: "colors.avatar", label: "댓글 프로필 (사진 없을 때)" }],
+        [{ type: "color", key: "colors.cInput", label: "입력칸" }, { type: "color", key: "colors.cInputLine", label: "입력칸 테두리" }], [{ type: "color", key: "colors.cPlaceholder", label: "안내 문구" }, { type: "color", key: "colors.cInputText", label: "입력 글자" }],
+        [{ type: "color", key: "colors.post", label: "게시 버튼" }, { type: "color", key: "colors.username", label: "아이디 · 시간" }], [{ type: "color", key: "colors.commentText", label: "댓글 글자" }, { type: "color", key: "colors.heartOff", label: "하트 (누르기 전)" }],
+        [{ type: "color", key: "colors.heartOn", label: "하트 (빨강)" }, { type: "color", key: "colors.floatHeart", label: "떠오르는 하트" }], [{ type: "color", key: "accent", label: "입력 커서" }], [{ type: "color", key: "colors.replyAvatar", label: "게시자 프로필 (사진 없을 때)" }, { type: "color", key: "colors.replyText", label: "답글 글자" }]] },
+    { title: "② 하트 떠오르기", durKey: "6", hint: "하트가 눌린 뒤 여러 개의 하트가 카드 위로 흩날리며 올라가요. 이 길이만큼 장면이 더 이어져요.",
+      rows: [[{ type: "number", key: "d6", label: "하트 더 이어지는 길이 (프레임)", min: 0, max: 240 }, { type: "number", key: "heartCount", label: "하트 개수", min: 1, max: 60 }],
+             [{ type: "number", key: "heartRise", label: "올라가는 높이 (px)", min: 100, max: 1500 }]] },
+  ],
+  durations: { 3: S => +S.d3, 6: S => +S.d6 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx;
+    if (S.keyMode === "green") { ctx.fillStyle = S.keyBg; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
+    const g = Math.min(f, +S.d3), k = +S.d3 / 82;
+    const up = easeOut(prog(g, 1 * k, 8 * k)); if (up <= 0) return;
+    const sc = lerp(.94, 1, back(prog(g, 1 * k, 9 * k)));
+    ctx.save(); ctx.globalAlpha *= clamp(up * 1.6); ctx.translate(CARD.x + CARD.w / 2, CARD.y + CARD.h / 2 + lerp(220, 0, up)); ctx.scale(sc, sc); ctx.translate(-CARD.w / 2, -CARD.h / 2);
+    const typed = sheet(g, k); inputBar(g, k, typed); floatHearts(f - 62 * k, HX, 228);
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

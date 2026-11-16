@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 01</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf } = E;
+
+const S = {
+  accent: "#d8ff3c",
+  images: { main: [], product: [], generated: [], output: [] },
+  labels: { main: "Main Character", product: "Cute Pajama", generated: "Cute Pajama" },
+  prompt: "Selfie of young woman, long wavy ash-blonde hair with bangs, big blue eyes, glossy pink lips, dewy kawaii makeup. Wearing fluffy pink bunny kigurumi hoodie with red hearts and cartoon bunny face on hood. Long stiletto nails with kawaii art, hand near face. Soft indoor lighting, dark tiled background iPhone selfie jirai kei, aesthetic",
+  hold: 26,
+  genIcon: "", btnIcon: "",
+  img: { genIcon: [], btnIcon: [] },
+  colors: { canvasTop: "#01160e", canvasBottom: "#05060e", panel: "#2e2e2e", buttonRing: "#f2f2f2", frame: "#222222", label: "#6f7472",
+            promptBg: "#1e1f20", promptText: "#e9e9e9", genIconColor: "#111111", genBtn: "#d8ff3c", line: "#f4f4f4", ring: "#ffffff" },
+};
+const C = S.colors;
+
+// 회색 패널의 부드러운 빛줄기 (한 번만 그려 둠)
+let rays;
+function makeRays() {
+  rays = document.createElement("canvas"); rays.width = W; rays.height = H; const r = rays.getContext("2d");
+  r.filter = "blur(28px)"; r.translate(720, -500);
+  for (let a = 160; a < 380; a += 9) { r.save(); r.rotate(a * Math.PI / 180); r.fillStyle = "rgba(255,255,255,.028)"; r.beginPath(); r.moveTo(0, 0); r.lineTo(4000, -280); r.lineTo(4000, 0); r.fill(); r.restore(); }
+}
+const RK = [[11, 120], [12, 200], [13, 380], [14, 590], [15, 820], [16, 1060], [17, 1300], [18, 1520], [19, 1720], [20, 1900]];
+function radius(f) { if (f < 11) return 0; if (f >= 20) return 1900; for (let i = 0; i < RK.length - 1; i++) if (f <= RK[i + 1][0]) return lerp(RK[i][1], RK[i + 1][1], (f - RK[i][0]) / (RK[i + 1][0] - RK[i][0])); }
+
+// 회색 패널 (둥근 모서리 + 가운데 원형 구멍) — 모양이 바뀌는 요소
+function panelShape(f, R) {
+  const pz = easeOut(prog(f, 0, 3));
+  ctx.save(); ctx.translate(720, 1280); ctx.scale(lerp(1.06, 1.08, pz), lerp(.79, 1.08, pz)); ctx.translate(-720, -1280);
+  E.rr(0, 0, W, H, lerp(150, 0, pz)); ctx.clip();
+  ctx.fillStyle = C.panel; ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = .55; ctx.drawImage(rays, 0, 0); ctx.globalAlpha = 1;
+  ctx.restore();
+  if (R > 0) { ctx.save(); ctx.globalCompositeOperation = "destination-out"; ctx.beginPath(); ctx.arc(720, 1280, R, 0, 7); ctx.fill(); ctx.restore(); }
+}
+// 생성 버튼 위쪽 화살표
+function upArrow(x, y, color) {
+  ctx.save(); ctx.translate(x, y); ctx.strokeStyle = color; ctx.lineWidth = 6.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(0, 17); ctx.lineTo(0, -16); ctx.moveTo(-14, -2); ctx.lineTo(0, -16); ctx.lineTo(14, -2); ctx.stroke(); ctx.restore();
+}
+// 버튼 몸체 (크기 280 기준). ringColor: 테두리 빛 색
+function buttonBody(ringColor, glowA) {
+  const R = 140;
+  ctx.save(); ctx.shadowColor = E.hexA(ringColor, glowA); ctx.shadowBlur = 60;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fillStyle = ringColor; ctx.fill(); ctx.restore();
+  const cg = ctx.createConicGradient(210 * Math.PI / 180, 0, 0); [["#1b1b1b", 0], ["#3c3c3c", .17], ["#1c1c1c", .36], ["#2f2f2f", .61], ["#1b1b1b", .83], ["#353535", .94], ["#1b1b1b", 1]].forEach(([c, o]) => cg.addColorStop(o, c));
+  ctx.beginPath(); ctx.arc(0, 0, R - 4, 0, 7); ctx.fillStyle = cg; ctx.fill();
+}
+function buttonIcon() {
+  if (S.img.btnIcon[0] || S.btnIcon) { E.symbol(S.btnIcon, S.img.btnIcon, 0, 0, 130, "#e6e6e6"); return; }   // 바꾼 아이콘
+  const bg = ctx.createLinearGradient(-56, 0, 56, 0); bg.addColorStop(0, "#8a8a8a"); bg.addColorStop(.45, "#e6e6e6"); bg.addColorStop(1, "#9a9a9a"); ctx.fillStyle = bg;
+  E.rr(-56, -3.5, 112, 7, 4); ctx.fill(); ctx.save(); ctx.rotate(Math.PI / 2); E.rr(-56, -3.5, 112, 7, 4); ctx.fill(); ctx.restore();
+}
+function panelLayers(f, R) {
+  const lime = f < 8 ? easeInOut(prog(f, 4, 8)) : 1 - easeInOut(prog(f, 9, 12));
+  E.el("panel", () => panelShape(f, R), true);
+  if (lime > 0) { ctx.save(); ctx.globalAlpha *= lime; E.el("panel_glow", () => { const rg = ctx.createRadialGradient(720, 1280, 0, 720, 1280, 1500); rg.addColorStop(0, E.hexA(S.accent, .16)); rg.addColorStop(.45, E.hexA(S.accent, .07)); rg.addColorStop(1, E.hexA(S.accent, 0)); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); }); ctx.restore(); }
+  // 버튼: + 가 × 로 돌고 테두리 빛이 흰색 → 강조색 → 흰색
+  const size = f < 3 ? lerp(280, 292, prog(f, 0, 3)) : f < 8 ? lerp(292, 228, easeInOut(prog(f, 3, 8))) : lerp(228, 250, easeOut(prog(f, 8, 11)));
+  if (R >= size / 2) return;   // 원형 구멍이 버튼보다 커지면 버튼은 사라짐
+  const rot = easeInOut(prog(f, 3, 8)) * 45;
+  ctx.save(); ctx.translate(720, 1280); ctx.scale(size / 280, size / 280);
+  E.el("button_white", () => buttonBody(C.buttonRing, .5));
+  if (lime > 0) { ctx.save(); ctx.globalAlpha *= lime; E.el("button_accent", () => buttonBody(S.accent, .75), true); ctx.restore(); }
+  ctx.rotate(rot * Math.PI / 180); E.el("button_icon", buttonIcon);
+  ctx.restore();
+}
+
+function canvasScene(f) {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, C.canvasTop); g.addColorStop(1, C.canvasBottom);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const rg = ctx.createRadialGradient(720, 300, 0, 720, 300, 1300); rg.addColorStop(0, E.hexA(C.canvasTop, .9)); rg.addColorStop(1, E.hexA(C.canvasTop, 0)); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+  const camIn = easeOut(prog(f, 11, 21)), drift = prog(f, 21, 21 + S.hold);
+  const sc = lerp(.84, 1, camIn) + .03 * drift;
+  ctx.save(); ctx.translate(720 - 8 * drift, 1280 - 14 * drift); ctx.scale(sc, sc); ctx.translate(-720, -1280);
+  // 연결선
+  E.el("lines", () => { ctx.save(); ctx.strokeStyle = C.line; ctx.lineWidth = 3; ctx.lineCap = "round";
+    [[848, 512, 836, 800, 846, 960, 874, 1024], [652, 734, 744, 742, 752, 984, 874, 1024], [578, 1240, 618, 1120, 800, 1104, 874, 1024]].forEach(p => { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]); ctx.stroke(); });
+    ctx.beginPath(); ctx.moveTo(874, 1024); ctx.lineTo(892, 1024); ctx.stroke(); ctx.restore();
+    [[848, 512], [652, 734], [578, 1240], [874, 1024], [1112, 1318]].forEach(([x, y]) => E.dot(x, y, 1, 9)); });
+  const lp = easeOut(prog(f, 20, 27));
+  if (lp > 0) E.el("line_output", () => E.bez([1112, 1318, 1104, 1468, 760, 1452, 622, 1580], lp, { dash: false, color: C.line }));
+  const dp = prog(f, 25, 27); if (dp > 0) { ctx.save(); ctx.globalAlpha *= dp; E.el("dot_output", () => E.dot(622, 1580, 1, 9)); ctx.restore(); }
+  // 카드
+  const card = (key, x, y, w, h, lab) => {
+    if (lab) E.el("label_" + key, () => E.label(lab, x + 10, y - 26, C.label));
+    E.el("frame_" + key, () => E.shadowed(() => { E.rr(x, y, w, h, 14); ctx.fillStyle = C.frame; ctx.fill(); }));
+    E.layer("img_" + key, { kind: "image", key: "images." + key, x, y, w, h }, () => E.cover((S.images[key][0] || {}).img, x, y, w, h, 14, false)); };
+  card("main", 690, 176, 316, 316, S.labels.main);
+  card("product", 242, 538, 390, 390, S.labels.product);
+  card("generated", 892, 746, 442, 554, S.labels.generated);
+  // 프롬프트 카드
+  E.el("prompt_card", () => E.shadowed(() => { E.rr(110, 1052, 450, 376, 24); ctx.fillStyle = C.promptBg; ctx.fill(); }, 40, 16, "rgba(0,0,0,.5)"));
+  E.layer("txt_prompt", { kind: "text", key: "prompt", text: S.prompt, x: 138, y: 1078, w: 394, h: 300, size: 25.5, lh: 30, color: C.promptText }, () => { ctx.save(); E.rr(110, 1052, 450, 376, 24); ctx.clip(); ctx.fillStyle = C.promptText; ctx.textBaseline = "top"; E.wrap(S.prompt, 138, 1078, 394, 30, `25.5px ${E.SANS}`, `25.5px ${E.SANS}`); ctx.restore(); });
+  E.el("generate_button", () => { E.rr(448, 1316, 86, 86, 22); ctx.fillStyle = S.colors.genBtn; ctx.fill(); if (S.genIcon || (S.img.genIcon || []).length) E.symbol(S.genIcon, S.img.genIcon, 491, 1359, 42, C.genIconColor); else upArrow(491, 1359, C.genIconColor); });
+  // 결과 카드: 빈 유리 카드 → 이미지가 흐린 상태에서 선명해짐
+  const shell = prog(f, 19, 23), im = easeOut(prog(f, 25, 31));
+  if (shell > 0) { ctx.save(); ctx.globalAlpha *= shell; ctx.translate(0, lerp(30, 0, easeOut(shell)));
+    E.el("output_shell", () => { E.rr(352, 1604, 534, 716, 14); ctx.fillStyle = "rgba(40,48,46,.55)"; ctx.fill(); });
+    if (im > 0) { ctx.globalAlpha *= im; ctx.filter = `blur(${lerp(18, 0, im)}px)`; E.layer("img_output", { kind: "image", key: "images.output", x: 352, y: 1604, w: 534, h: 716 }, () => E.cover((S.images.output[0] || {}).img, 352, 1604, 534, 716, 14, false)); ctx.filter = "none"; }
+    ctx.restore(); }
+  // 버튼 잔상
+  const gh = f < 11 ? 0 : .55 * (1 - prog(f, 13, 23));
+  if (gh > 0) { ctx.save(); ctx.globalAlpha *= gh; E.el("button_ghost", () => { ctx.filter = "blur(8px)"; const gg = ctx.createRadialGradient(720, 1280, 0, 720, 1280, 125); gg.addColorStop(0, "#3a3d3d"); gg.addColorStop(.6, "#1a1f1f"); gg.addColorStop(1, "rgba(10,20,20,0)"); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(720, 1280, 125, 0, 7); ctx.fill(); ctx.filter = "none"; }); ctx.restore(); }
+  ctx.restore();
+}
+
+const total = () => 21 + +S.hold + 4;
+E.start({
+  title: "모션 01 · 버튼 → 원형 리빌 → 노드 캔버스", group: "릴스01 템플릿", file: "motion01", state: S,
+  intro: "+ 버튼이 × 로 돌고, 빛나는 원이 퍼지면서 이미지·프롬프트가 있는 캔버스가 열려요.",
+  images: { "images.main": [{ file: "m1_main_character.jpg" }], "images.product": [{ file: "m1_product.jpg" }], "images.generated": [{ file: "m1_generated.jpg" }], "images.output": [{ file: "m1_output.jpg" }] },
+  sections: [
+    { title: "① 가운데 버튼", hint: "+ 버튼이 × 로 돌며 빛이 바뀌어요. 기호나 이미지를 넣으면 + 모양 대신 들어가요.",
+      rows: [[{ key: "btnIcon", label: "버튼 기호 (비우면 + 모양)" }, { type: "images", key: "img.btnIcon", label: "버튼 이미지 (있으면 우선)" }],
+             [{ type: "sub", label: "색상" }],
+             [{ type: "color", key: "colors.panel", label: "회색 패널" }, { type: "color", key: "colors.buttonRing", label: "버튼 테두리" }],
+             [{ type: "color", key: "accent", label: "버튼 빛 (돌 때)" }]] },
+    { title: "② 원형 리빌", rows: [[{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.ring", label: "퍼지는 링" }]] },
+    { title: "③ 캔버스 · 배경과 이미지 카드", hint: "위쪽 정사각형 2장, 오른쪽 세로 1장, 아래 결과 1장.",
+      rows: [[{ type: "images", key: "images.main", label: "위 정사각형" }, { type: "images", key: "images.product", label: "왼쪽 정사각형" }],
+             [{ type: "images", key: "images.generated", label: "오른쪽 세로" }, { type: "images", key: "images.output", label: "아래 결과 (나중에 등장)" }],
+             [{ key: "labels.main", label: "위 카드 라벨" }, { key: "labels.product", label: "왼쪽 카드 라벨" }], [{ key: "labels.generated", label: "오른쪽 카드 라벨" }],
+             [{ type: "number", key: "hold", label: "캔버스 머무는 길이 (프레임)", min: 10, max: 200 }],
+             [{ type: "sub", label: "색상" }],
+             [{ type: "color", key: "colors.canvasTop", label: "캔버스 위쪽" }, { type: "color", key: "colors.canvasBottom", label: "캔버스 아래쪽" }],
+             [{ type: "color", key: "colors.frame", label: "카드 틀" }, { type: "color", key: "colors.label", label: "카드 라벨 글자" }],
+             [{ type: "color", key: "colors.line", label: "연결선" }]] },
+    { title: "③ 캔버스 · 프롬프트",
+      rows: [[{ type: "textarea", key: "prompt", label: "프롬프트 카드" }],
+             [{ type: "sub", label: "생성 버튼 기호" }],
+             [{ key: "genIcon", label: "기호 (비우면 ↑ 화살표)" }, { type: "images", key: "img.genIcon", label: "기호 이미지 (있으면 우선)" }],
+             [{ type: "sub", label: "색상" }],
+             [{ type: "color", key: "colors.promptBg", label: "프롬프트 카드" }, { type: "color", key: "colors.promptText", label: "프롬프트 글자" }],
+             [{ type: "color", key: "colors.genBtn", label: "생성 버튼" }, { type: "color", key: "colors.genIconColor", label: "생성 버튼 기호" }]] },
+  ],
+  length: total, setCtx: c => { ctx = c; },
+  render(f) {
+    ctx = E.ctx; if (!rays) makeRays();
+    const end = 21 + +S.hold;
+    const out = easeInOut(prog(f, end - .5, end + 3));
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    if (out > 0) { ctx.translate(720, 1280); ctx.scale(1 + .08 * out, 1 + .08 * out); ctx.translate(-720, -1280); ctx.filter = `blur(${7 * out}px) brightness(${1 + .25 * out})`; }
+    const R = radius(f);
+    if (R > 0) canvasScene(f);   // 원이 열리기 시작하면 캔버스, 그 위를 '원형 구멍이 뚫린 회색 패널'이 덮음
+    if (f < 20) panelLayers(f, R);
+    const ro = R > 0 ? 1 - prog(f, 18, 21) : 0;
+    if (ro > 0) { ctx.save(); ctx.globalAlpha *= ro; E.el("light_ring", () => { ctx.strokeStyle = C.ring; ctx.lineWidth = 12; ctx.shadowColor = E.hexA(C.ring, .75); ctx.shadowBlur = 60; ctx.beginPath(); ctx.arc(720, 1280, R - 6, 0, 7); ctx.stroke(); ctx.stroke(); }); ctx.restore(); }
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 02</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets_m02.js"></script><script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04, I = U04.icons; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00", scale: 1,
+  img: { refs: [] },
+  prompt: "15-second cinematic scene inside a small old Korean apartment elevator with mint-green walls, stainless steel panels, fluorescent ceiling light, floor display on the side wall. Warm faded film color, 35mm grain, 16:9, consistent faces and outfits throughout. All dialogue is spoken in natural Korean with accurate lip sync. Subtle elevator hum in the background.\n0–2s: The young man on the left wears headphones, staring ahead, lost in music. The young woman on the right turns to him with a playful, confident smile and says in a bright, light voice: \"저, 언니네 이발관 좋아해요.\"\n2–3.5s: He notices, pulls the headphones down to his neck, turns to her surprised and awkward, and asks in a soft low voice: \"네?\"",
+  model: "Dreamina Seedance 2.5 Draft", ratio: "16:9", quality: "480p 초안", count: "1 video", ref: "옴니 레퍼런스", more: "15s",
+  credit: "390", creditOld: "510", showCaret: true, pressSend: true, fontSize: 50, cps: 80,
+  colors: { panel: "#222222", text: "#f2f2f2", muted: "#e6e6e6", sparkle: "#2f9bff", chip: "#3a3a3a", send: "#ffffff", sendIcon: "#111111", caret: "#ffffff", border: "#3a3a3a" },
+  d1: 20, d3: 36,
+};
+const typeLen = () => Math.max(6, Math.round(Array.from(S.prompt).length / Math.max(1, +S.cps) * FPS));
+const T = () => { const a = +S.d1, b = typeLen(), c = +S.d3; return { s2: a, s3: a + b, total: a + b + c }; };
+const PW = 1360, PAD = 44, TH = 128, VIS = 6;
+let FS = 50, LH = 78;
+const PHf = () => 40 + TH + 36 + VIS * LH + 40 + 80 + 36;
+const FONT = () => `400 ${FS}px ${E.SANS}`;
+
+function chip(x, cy, parts) {   // parts: [{t:text} | {ico:fn, s} | {gap}]
+  let cx = x; ctx.font = `500 29px ${E.SANS}`; ctx.textBaseline = "middle";
+  for (const p of parts) {
+    if (p.gap) { cx += p.gap; continue; }
+    if (p.t != null) { ctx.fillStyle = p.c || S.colors.muted; ctx.fillText(p.t, cx, cy + 1); cx += ctx.measureText(p.t).width; continue; }
+    if (p.dot) { ctx.fillStyle = "#8a8a8a"; ctx.beginPath(); ctx.arc(cx + 12, cy, 3.5, 0, 7); ctx.fill(); cx += 24; continue; }
+    if (p.ico) { p.ico(cx + p.s / 2, cy, p.s, p.c || S.colors.muted); cx += p.s; }
+  }
+  return cx;
+}
+
+function panel(f, t) {
+  const c = S.colors, x0 = 0, y0 = 0;
+  const PH = PHf(); E.rr(x0, y0, PW, PH, 52); ctx.fillStyle = c.panel; ctx.fill(); ctx.strokeStyle = E.hexA("#ffffff", .06); ctx.lineWidth = 2; ctx.stroke();
+  // 참조 썸네일
+  const refs = S.img.refs || [], ty = 40;
+  refs.slice(0, 7).forEach((o, i) => {
+    const p = back(prog(f, 6 + i * 4, 16 + i * 4)); if (p <= 0) return; const x = PAD + i * (TH + 18), cx = x + TH / 2, cy = ty + TH / 2;
+    ctx.save(); ctx.globalAlpha *= clamp(p * 2); ctx.translate(cx, cy); ctx.scale(lerp(.6, 1, p), lerp(.6, 1, p)); ctx.translate(-cx, -cy);
+    U.photo(o.img, x, ty, TH, TH, 20);
+    if (o.label) { ctx.save(); E.rr(x, ty, TH, TH, 20); ctx.clip(); const g = ctx.createLinearGradient(0, ty + TH * .5, 0, ty + TH); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.55)"); ctx.fillStyle = g; ctx.fillRect(x, ty, TH, TH); ctx.restore();
+      ctx.fillStyle = "#fff"; ctx.font = `500 28px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(o.label, cx, ty + TH - 24); ctx.textAlign = "left"; }
+    ctx.restore();
+  });
+  { const n = Math.min(refs.length, 7), p = back(prog(f, 6 + n * 4, 16 + n * 4)), x = PAD + n * (TH + 18), cx = x + TH / 2, cy = ty + TH / 2;
+    if (p > 0) { ctx.save(); ctx.globalAlpha *= clamp(p * 2); ctx.translate(cx, cy); ctx.scale(lerp(.6, 1, p), lerp(.6, 1, p)); ctx.translate(-cx, -cy);
+      E.rr(x, ty, TH, TH, 20); ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 2; ctx.stroke(); I.plus(cx, cy, 44, "#d8d8d8", 2.2); ctx.restore(); } }
+  I.expand(PW - 54, 64, 34, "#bdbdbd", 2.2);
+
+  // 프롬프트 (타이핑 + 자동 스크롤)
+  const TY = ty + TH + 36, TW = PW - PAD * 2 - 40, lines = U.wrap(S.prompt, FONT(), TW), all = Array.from(S.prompt).length;
+  const nAt = ff => U.typedCount(S.prompt, prog(ff - t.s2, 0, typeLen()));
+  const n = nAt(f), scr = ff => Math.max(0, U.caretLine(lines, nAt(ff)) - VIS + 1) * LH;
+  const scroll = (scr(f) + scr(f - 1) + scr(f - 2) + scr(f - 3)) / 4;
+  ctx.save(); ctx.beginPath(); ctx.rect(PAD - 10, TY - 6, TW + 20, VIS * LH + 4); ctx.clip();
+  ctx.font = FONT(); ctx.fillStyle = S.colors.text; ctx.textBaseline = "top";
+  const { cx, cy } = U.drawTyped(lines, n, PAD, TY, LH, scroll);
+  const typing = n > 0 && n < all, blink = Math.floor(f / 8) % 2 === 0;
+  if (S.showCaret && f >= t.s2 - 6 && f < t.s3 + 8 && (typing || blink)) { ctx.fillStyle = c.caret; ctx.fillRect(cx + 3, (n === 0 ? TY : cy) + 4, 3, FS + 8); }
+  ctx.restore();
+  // 스크롤 막대
+  if (lines.length > VIS) { const trackH = VIS * LH, thH = trackH * VIS / lines.length, maxS = (lines.length - VIS) * LH, ty2 = TY + (trackH - thH) * clamp(scroll / maxS);
+    E.rr(PW - 30, ty2, 8, thH, 4); ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.fill(); }
+
+  // 하단 바
+  const BY = TY + VIS * LH + 40 + 40, SEND = { x: PW - PAD - 42, r: 42 };
+  const sp = S.pressSend ? prog(f - t.s3, 4, 12) : 0, press = sp > 0 && sp < 1 ? Math.sin(Math.PI * sp) : 0;
+  ctx.save(); ctx.translate(SEND.x, BY); ctx.scale(1 - .12 * press, 1 - .12 * press);
+  ctx.beginPath(); ctx.arc(0, 0, SEND.r, 0, 7); ctx.fillStyle = c.send; ctx.fill(); I.arrowUp(0, 0, 40, c.sendIcon, 2.8); ctx.restore();
+  U.ripple(SEND.x, BY, prog(f - t.s3, 8, 26), "#ffffff", 110);
+  // 크레딧
+  ctx.font = `500 32px ${E.SANS}`; ctx.textBaseline = "middle"; const ow = ctx.measureText(S.creditOld).width, nw = ctx.measureText(S.credit).width;
+  let rx = SEND.x - SEND.r - 34 - ow; ctx.save(); ctx.globalAlpha *= .5; U.strike(S.creditOld, rx, BY + 1, "#bdbdbd"); ctx.restore();
+  rx -= 12 + nw; ctx.fillStyle = c.text; ctx.fillText(S.credit, rx, BY + 1); rx -= 40; I.sparkle(rx + 14, BY, 26, "#d6d6d6");
+  // > 버튼
+  const AX = rx - 30 - 56; E.rr(AX, BY - 32, 56, 64, 12); ctx.fillStyle = c.chip; ctx.fill(); I.chevronR(AX + 28, BY, 26, "#e6e6e6", 2.4);
+  // 옵션 칩 (> 버튼 앞에서 잘림)
+  ctx.save(); ctx.beginPath(); ctx.rect(PAD - 4, BY - 50, AX - 14 - PAD, 100); ctx.clip();
+  let x = PAD + 6;
+  x = chip(x, BY, [{ t: S.model, c: c.text }, { gap: 12 }, { ico: I.chevron, s: 22 }]) + 36;
+  x = chip(x, BY, [{ t: S.ratio }, { dot: 1 }, { t: S.quality }, { gap: 8 }, { ico: I.sparkle, s: 26, c: c.sparkle }, { dot: 1 }, { t: S.count }, { gap: 12 }, { ico: I.chevron, s: 22 }]) + 36;
+  x = chip(x, BY, [{ t: S.ref }, { gap: 12 }, { ico: I.chevron, s: 22 }]) + 36;
+  chip(x, BY, [{ t: S.more }]);
+  ctx.restore();
+  const fg = ctx.createLinearGradient(AX - 70, 0, AX - 14, 0); fg.addColorStop(0, E.hexA(c.panel, 0)); fg.addColorStop(1, E.hexA(c.panel, 1)); ctx.fillStyle = fg; ctx.fillRect(AX - 70, BY - 40, 58, 80);
+}
+
+E.start({
+  title: "모션 02 · 프롬프트 패널 (참조 + 긴 프롬프트)", group: "릴스04 템플릿", file: "motion02", state: S, alpha: true,
+  intro: "드리미나 프롬프트 패널이 떠오르고 참조 이미지가 하나씩 붙은 뒤, 긴 프롬프트가 타이핑되며 자동으로 스크롤돼요. 마지막에 전송 버튼을 눌러요.",
+  images: { "img.refs": [1, 2, 3, 4].map(i => ({ file: `m02_r${i}.jpg` })).concat([{ file: "m02_r5.jpg", label: "15s" }]) },
+  sections: [
+    { title: "공통", rows: [...U.bgRows, [{ type: "number", key: "scale", label: "패널 크기 배율", min: .3, max: 1.05 }]] },
+    { title: "① 패널 + 참조 이미지", durKey: "1", hint: "이미지 아래 라벨(예: 15s)은 이미지 아래 글자를 눌러서 바꿔요. 비우면 라벨 없음.",
+      rows: [[{ type: "images", key: "img.refs", label: "참조 이미지 (최대 7장)", max: 7, labels: true }], [{ type: "number", key: "d1", label: "길이 (프레임)", min: 6, max: 90 }]] },
+    { title: "② 프롬프트 타이핑", durKey: "2", hint: "6줄이 넘으면 자동으로 아래로 스크롤돼요.",
+      rows: [[{ type: "textarea", key: "prompt", label: "프롬프트" }], [{ type: "number", key: "cps", label: "타이핑 속도 (초당 글자 수)", min: 1, max: 400 }, { type: "number", key: "fontSize", label: "글자 크기 (px)", min: 24, max: 80 }],
+        [{ type: "bool", key: "showCaret", label: "깜빡이는 막대 (커서)" }, { type: "color", key: "colors.caret", label: "막대 색" }]] },
+    { title: "③ 하단 옵션 + 전송", durKey: "3",
+      rows: [[{ key: "model", label: "모델" }, { key: "ref", label: "레퍼런스" }], [{ key: "ratio", label: "비율" }, { key: "quality", label: "화질" }],
+        [{ key: "count", label: "개수" }, { key: "more", label: "잘려 보이는 다음 항목" }], [{ key: "credit", label: "크레딧" }, { key: "creditOld", label: "줄 그은 크레딧" }],
+        [{ type: "bool", key: "pressSend", label: "전송 버튼 누르기" }, { type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 120 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.panel", label: "패널" }, { type: "color", key: "colors.text", label: "글자" }],
+        [{ type: "color", key: "colors.sparkle", label: "파란 별" }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: () => typeLen(), 3: S => +S.d3 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; FS = +S.fontSize || 50; LH = Math.round(FS * 1.56); const PH = PHf(); const t = T(); U.bg(S);
+    const k = +S.scale || 1, p = easeOut(prog(f, 0, 14)), sc = k * lerp(.96, 1, p);
+    ctx.save(); ctx.globalAlpha = clamp(p * 1.4); ctx.translate(W / 2, H / 2 + lerp(80, 0, p)); ctx.scale(sc, sc); ctx.translate(-PW / 2, -PH / 2);
+    U.shadow(S, () => { E.rr(0, 0, PW, PH, 52); ctx.fillStyle = S.colors.panel; ctx.fill(); }, 70, 24, "rgba(0,0,0,.55)");
+    panel(f, t); ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

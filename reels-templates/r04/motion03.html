@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 03</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04, I = U04.icons; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00", scale: 1,
+  tabs: "AI 에이전트\nAI 이미지\nAI 동영상\nAI 오디오\nAI 음악\nAI 아바타", tabFrom: 2, tabTo: 3, showCursor: true,
+  text: "가나다라 마바사아", refLabel: "참조",
+  model: "Dreamina Seedance 2.0 Mini", ref: "옴니 레퍼런스", ratio: "9:16", quality: "720P", dur: "5s", credit: "25", creditOld: "60", pressSend: true,
+  colors: { outer: "#161616", panel: "#232323", tab: "#bdbdbd", tabOn: "#ffffff", text: "#f2f2f2", muted: "#e6e6e6", sparkle: "#2f9bff", caret: "#2f9bff", refCard: "#3a3a3a", send: "#ffffff", sendIcon: "#111111" },
+  d1: 16, d2: 26, d3: 40, d4: 30,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3, d = +S.d4; return { s2: a, s3: a + b, s4: a + b + c, total: a + b + c + d }; };
+const PW = 1360, TABH = 104, IN = 12, PH = TABH + 360 + IN;
+const tabs = () => String(S.tabs).split("\n").filter(Boolean).slice(0, 8);
+
+// 한글 조합 단계 (ㄱ → 가 → 각)
+const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+function stages(text) {
+  const out = []; let done = "";
+  for (const c of Array.from(text)) {
+    const code = c.charCodeAt(0) - 0xAC00;
+    if (code >= 0 && code < 11172) { const jong = code % 28, jung = ((code - jong) / 28) % 21, cho = Math.floor(code / 28 / 21);
+      out.push({ s: done, comp: CHO[cho] }); out.push({ s: done, comp: String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28) }); if (jong) out.push({ s: done, comp: c }); }
+    else out.push({ s: done, comp: "", ch: c });
+    done += c;
+  }
+  out.push({ s: done, comp: "" }); return out;
+}
+function typedAt(p) {
+  const st = stages(S.text), n = st.length - 1; if (p <= 0) return { s: "", comp: "" };
+  const w = st.map((o, i) => (o.ch === " " ? 2.2 : 1) * (0.7 + 0.6 * (((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1)));
+  const tot = w.slice(0, n).reduce((a, b) => a + b, 0); let acc = 0; const target = clamp(p) * tot;
+  for (let i = 0; i < n; i++) { acc += w[i]; if (acc > target) return st[i]; }
+  return st[n];
+}
+
+// 탭 아이콘 (활성 탭에만 보임)
+function tabIcon(i, x, y, s, c) {
+  const k = String(tabs()[i] || "");
+  if (/동영상|video/i.test(k)) return I.playCircle(x, y, s, c, 2.2);
+  if (/이미지|image/i.test(k)) return I.image(x, y, s, c, 2.2);
+  if (/에이전트|agent/i.test(k)) return I.agent(x, y, s, c, 2.2);
+  if (/아바타|avatar/i.test(k)) return I.person(x, y, s, c, 2.2);
+  return I.ico(x, y, s, c, 2.2, g => { g.beginPath(); [-8, -3, 2, 7].forEach((bx, j) => { const h = [6, 14, 9, 4][j]; g.moveTo(bx, -h); g.lineTo(bx, h); }); g.stroke(); });   // 소리 막대
+}
+function tabShape(x, w, top, bot, r, flare) {
+  ctx.beginPath(); ctx.moveTo(x - flare, bot); ctx.quadraticCurveTo(x, bot, x, bot - flare); ctx.lineTo(x, top + r); ctx.quadraticCurveTo(x, top, x + r, top);
+  ctx.lineTo(x + w - r, top); ctx.quadraticCurveTo(x + w, top, x + w, top + r); ctx.lineTo(x + w, bot - flare); ctx.quadraticCurveTo(x + w, bot, x + w + flare, bot); ctx.closePath();
+}
+function rowItems(c) {
+  return [
+    { ico: I.cube, s: 30 }, { gap: 14 }, { t: S.model, c: c.text }, { gap: 10 }, { ico: I.sparkle, s: 24, c: c.sparkle }, { gap: 8 }, { ico: I.chevron, s: 22 }, { gap: 40 },
+    { ico: I.omni, s: 30 }, { gap: 12 }, { t: S.ref }, { gap: 40 },
+    { ico: I.phone, s: 30 }, { gap: 10 }, { t: S.ratio }, { dot: 1 }, { t: S.quality }, { gap: 8 }, { ico: I.sparkle, s: 24, c: c.sparkle }, { gap: 40 },
+    { ico: I.clock, s: 30 }, { gap: 12 }, { t: S.dur }, { gap: 40 }, { at: 1 },
+  ];
+}
+function drawRow(items, x, cy, dry) {
+  let cx = x; ctx.font = `500 29px ${E.SANS}`; ctx.textBaseline = "middle";
+  for (const p of items) {
+    if (p.gap) { cx += p.gap; continue; }
+    if (p.t != null) { if (!dry) { ctx.fillStyle = p.c || S.colors.muted; ctx.fillText(p.t, cx, cy + 1); } cx += ctx.measureText(p.t).width; continue; }
+    if (p.dot) { if (!dry) { ctx.fillStyle = "#8a8a8a"; ctx.beginPath(); ctx.arc(cx + 12, cy, 3.5, 0, 7); ctx.fill(); } cx += 24; continue; }
+    if (p.at) { if (!dry) { I.at(cx + 16, cy, 32, S.colors.muted, 2.2); ctx.fillStyle = S.colors.sparkle; ctx.beginPath(); ctx.arc(cx + 30, cy - 15, 5, 0, 7); ctx.fill(); } cx += 34; continue; }
+    if (p.ico) { if (!dry) p.ico(cx + p.s / 2, cy, p.s, p.c || S.colors.muted); cx += p.s; }
+  }
+  return cx - x;
+}
+
+function scene(f, t) {
+  const c = S.colors, list = tabs(), n = list.length, tw = PW / n;
+  E.rr(0, 0, PW, PH, 46); ctx.fillStyle = c.outer; ctx.fill();
+  // 활성 탭 이동
+  const from = clamp(+S.tabFrom - 1, 0, n - 1), to = clamp(+S.tabTo - 1, 0, n - 1), click = t.s2 + 14;
+  const mp = easeInOut(prog(f, click, click + 9)), ax = lerp(from, to, mp) * tw;
+  const PY = TABH, PHH = PH - TABH - IN;
+  ctx.fillStyle = c.panel; E.rr(IN, PY, PW - IN * 2, PHH, 40); ctx.fill();
+  const firstOrLast = (ax < 1 ? 1 : 0); tabShape(ax + IN * firstOrLast + 6, tw - 12 - IN * firstOrLast, 12, PY + 2, 26, 18); ctx.fill();
+  if (ax < 1) { ctx.fillRect(IN, PY - 2, 40, 44); }
+  list.forEach((name, i) => {
+    const on = clamp(1 - Math.abs(lerp(from, to, mp) - i)), cx = i * tw + tw / 2, cy = 12 + (PY - 12) / 2 + 2;
+    ctx.font = `${on > .5 ? 700 : 500} 30px ${E.SANS}`; const lw = ctx.measureText(name).width, iw = 36 * on, x0 = cx - (lw + iw + (on ? 12 * on : 0)) / 2;
+    if (on > 0) { ctx.save(); ctx.globalAlpha *= on; tabIcon(i, x0 + iw / 2, cy, 34 * on, c.tabOn); ctx.restore(); }
+    ctx.fillStyle = on > .5 ? c.tabOn : c.tab; ctx.textBaseline = "middle"; ctx.fillText(name, x0 + iw + 12 * on, cy + 1);
+  });
+  // 참조 카드
+  ctx.save(); ctx.translate(126, PY + 120); ctx.rotate(-.13); E.rr(-62, -72, 124, 144, 12); ctx.fillStyle = c.refCard; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+  I.plus(0, -18, 38, "#cfcfcf", 2.2); ctx.fillStyle = "#bdbdbd"; ctx.font = `500 26px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.refLabel, 0, 32); ctx.restore(); ctx.textAlign = "left";
+  // 입력 (한글 조합 타이핑)
+  const tp = prog(f, t.s3, t.s4 - 6), st = typedAt(tp), TX = 232, TYc = PY + 62, FS = 38;
+  ctx.font = `500 ${FS}px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = c.text; ctx.fillText(st.s + st.comp, TX, TYc);
+  const w1 = ctx.measureText(st.s).width, w2 = ctx.measureText(st.s + st.comp).width;
+  if (st.comp) { ctx.fillStyle = c.text; ctx.fillRect(TX + w1, TYc + FS * .62, w2 - w1, 2.5); }
+  const typing = tp > 0 && tp < 1, blink = Math.floor(f / 8) % 2 === 0;
+  if (f >= t.s3 - 4 && (typing || blink)) { ctx.fillStyle = c.caret; ctx.fillRect(TX + w2 + 3, TYc - FS * .62, 3.5, FS * 1.24); }
+  // 하단 줄
+  const BY = PY + PHH - 70, SX = PW - IN - 34 - 44;
+  const sp = S.pressSend ? prog(f - t.s4, 4, 12) : 0, press = sp > 0 && sp < 1 ? Math.sin(Math.PI * sp) : 0;
+  ctx.save(); ctx.translate(SX, BY); ctx.scale(1 - .12 * press, 1 - .12 * press); ctx.beginPath(); ctx.arc(0, 0, 44, 0, 7); ctx.fillStyle = c.send; ctx.fill(); I.arrowUp(0, 0, 40, c.sendIcon, 2.8); ctx.restore();
+  U.ripple(SX, BY, prog(f - t.s4, 8, 26), "#ffffff", 110);
+  ctx.font = `500 29px ${E.SANS}`; ctx.textBaseline = "middle"; const ow = ctx.measureText(S.creditOld).width, nw = ctx.measureText(S.credit).width;
+  let rx = SX - 44 - 30 - ow; ctx.save(); ctx.globalAlpha *= .5; U.strike(S.creditOld, rx, BY + 1, "#bdbdbd"); ctx.restore();
+  rx -= 10 + nw; ctx.fillStyle = c.text; ctx.fillText(S.credit, rx, BY + 1); rx -= 36; I.sparkle(rx + 13, BY, 24, "#d6d6d6");
+  const items = rowItems(c), RX = 52, avail = rx - 30 - RX, rw = drawRow(items, 0, 0, true), k = Math.min(1, avail / rw);
+  ctx.save(); ctx.translate(RX, BY); ctx.scale(k, k); drawRow(items, 0, 0); ctx.restore();
+  return { tabX: to * tw + tw / 2, tabY: 12 + (PY - 12) / 2, click };
+}
+
+E.start({
+  title: "모션 03 · AI 동영상 탭 + 입력", group: "릴스04 템플릿", file: "motion03", state: S, alpha: true,
+  intro: "탭 바가 있는 입력창이 뜨고, 커서가 'AI 동영상' 탭을 눌러 활성 탭이 옮겨가요. 한글이 자음→모음→받침 순서로 조합되며 입력되고 전송 버튼을 눌러요.",
+  sections: [
+    { title: "공통", rows: [...U.bgRows, [{ type: "number", key: "scale", label: "패널 크기 배율", min: .3, max: 1.05 }]] },
+    { title: "① 등장", durKey: "1", rows: [[{ type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 90 }]] },
+    { title: "② 탭 전환", durKey: "2", hint: "탭 이름은 줄마다 하나 (최대 8개). 번호는 위에서부터 1, 2, 3…",
+      rows: [[{ type: "textarea", key: "tabs", label: "탭 목록" }], [{ type: "number", key: "tabFrom", label: "처음 탭 번호", min: 1, max: 8 }, { type: "number", key: "tabTo", label: "눌러서 바뀌는 탭 번호", min: 1, max: 8 }],
+        [{ type: "bool", key: "showCursor", label: "마우스 커서" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 10, max: 90 }]] },
+    { title: "③ 입력", durKey: "3", hint: "한글은 자음 → 모음 → 받침 순서로 조합되며 써져요.",
+      rows: [[{ key: "text", label: "입력 문구" }, { key: "refLabel", label: "참조 카드 글자" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 300 }, { type: "color", key: "colors.caret", label: "커서 색" }]] },
+    { title: "④ 옵션 + 전송", durKey: "4",
+      rows: [[{ key: "model", label: "모델" }, { key: "ref", label: "레퍼런스" }], [{ key: "ratio", label: "비율" }, { key: "quality", label: "화질" }], [{ key: "dur", label: "길이 표시" }, { key: "credit", label: "크레딧" }],
+        [{ key: "creditOld", label: "줄 그은 크레딧" }, { type: "bool", key: "pressSend", label: "전송 버튼 누르기" }], [{ type: "number", key: "d4", label: "길이 (프레임)", min: 6, max: 120 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.outer", label: "바깥 (탭 줄)" }, { type: "color", key: "colors.panel", label: "입력창·활성 탭" }],
+        [{ type: "color", key: "colors.text", label: "글자" }, { type: "color", key: "colors.sparkle", label: "파란 별·점" }]] },
+  ],
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => +S.d4 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(); U.bg(S);
+    const k = +S.scale || 1, p = easeOut(prog(f, 0, 14)), sc = k * lerp(.96, 1, p);
+    ctx.save(); ctx.globalAlpha = clamp(p * 1.4); ctx.translate(W / 2, H / 2 + lerp(80, 0, p)); ctx.scale(sc, sc); ctx.translate(-PW / 2, -PH / 2);
+    U.shadow(S, () => { E.rr(0, 0, PW, PH, 46); ctx.fillStyle = S.colors.outer; ctx.fill(); }, 70, 24, "rgba(0,0,0,.55)");
+    const r = scene(f, t);
+    // 마우스 커서: 아래에서 들어와 탭 클릭 후 빠짐
+    if (S.showCursor) {
+      const a = easeInOut(prog(f, t.s2 - 4, r.click)), out = easeIn(prog(f, r.click + 8, r.click + 20));
+      const x = lerp(PW * .78, r.tabX + 10, a) + out * 120, y = lerp(PH + 160, r.tabY + 6, a) + out * 260;
+      const press = Math.sin(Math.PI * prog(f, r.click - 2, r.click + 4));
+      U.ripple(r.tabX + 10, r.tabY + 6, prog(f, r.click, r.click + 14), "#ffffff", 70);
+      U.arrow(x, y, 1.6, clamp(a * 3) * (1 - out), press, U.green(S));
+    }
+    ctx.restore();
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

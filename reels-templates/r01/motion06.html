@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 06</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back, kf, kf2 } = E;
+
+const S = {
+  keyMode: "green", keyBg: "#00ff00",
+  accent: "#cdfd1a", logoColor: "#cdfd1a", brandColor: "#f2f2f2",
+  img: { logo: [], avatar: [], replyAvatar: [] },
+  panelTitle: "AI Director", placeholder: "Describe what you really want!",
+  typed: "Create nodes that take an idea all the way to the final result",
+  sent: "Create nodes for a complete workflow from idea to final result", after: "Type here",
+  brand: "YOUR BRAND", logoText: "✦",
+  sheetTitle: "댓글", cPlaceholder: "댓글 달기...", postBtn: "게시", keyword: "뉴테이크", username: "@you", timeAgo: "방금", likedNote: "",
+  replyName: "@creator", replyTime: "방금", replyText: "보내드렸어요! DM 확인해 주세요 💌",
+  colors: { bgTop: "#06210f", bgBottom: "#05060c", panel: "#121314", panelTitle: "#d8d8d8",
+            input: "#1d1e20", inputText: "#e2e2e2", placeholder: "#7d7f82", bubble: "#2a2c2f", bubbleText: "#ececec", send: "#e8e8e8",
+            sheet: "#151617", sheetTitle: "#ececec", grabber: "#3a3c40", cInput: "#1f2022", cInputLine: "#2e3033", cPlaceholder: "#7d7f82", cInputText: "#f2f2f2",
+            avatar: "#cdfd1a", post: "#cdfd1a", username: "#8a8c90", commentText: "#f2f2f2", heartOff: "#5f6165", heartOn: "#ff3b4f", floatHeart: "#ff3b4f", replyAvatar: "#8b6cf6", replyText: "#e6e6e6", logoCard: "#111213" },
+  heartCount: 14, heartRise: 620,
+  d2: 48, d3: 110, d6: 84, d4: 12, d5: 30,
+};
+const T = () => { const a = 0, b = +S.d2, c = +S.d3 + +S.d6, d = +S.d4, e = +S.d5; return { s2: a, s3: a + b, s4: a + b + c, s5: a + b + c + d, total: a + b + c + d + e }; };
+const im = k => (S.img[k][0] || {}).img;
+const PANEL = { x: 197, y: 670, w: 975, h: 1230 }, SHEET_TOP = 1152, INPUT = { x: 56, y: 688, w: 1328, h: 160 };
+
+function bg() { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, S.colors.bgTop); g.addColorStop(1, S.colors.bgBottom); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+function panelBox(r, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a;
+  E.shadowed(() => { E.rr(r.x, r.y, r.w, r.h, 26); ctx.fillStyle = S.colors.panel; ctx.fill(); }, 50, 20, "rgba(0,0,0,.55)");
+  E.rr(r.x, r.y, r.w, r.h, 26); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+// 패널 내용: 975x1230 기준 좌표로 그림 (f2 = 36프레임 기준 시간)
+function wrapLines(text, font, maxW) {   // 전체 문장 기준으로 줄을 미리 나눠서, 타이핑 중에 줄이 다시 흐르지 않게
+  ctx.font = font; const out = [];
+  String(text).split("\n").forEach(par => { let cur = "";
+    for (const w of par.split(" ")) { const t = cur ? cur + " " + w : w;
+      if (ctx.measureText(t).width > maxW && cur) { out.push(cur + " "); cur = w; } else cur = t; }
+    out.push(cur); });
+  return out;
+}
+// 사람처럼: 글자마다 속도가 조금씩 다르고 띄어쓰기·쉼표 뒤에 살짝 멈칫
+function typedCount(text, p) {
+  const ch = Array.from(text); if (!ch.length) return 0;
+  const w = ch.map((c, i) => (c === " " ? 1.9 : /[,.!?]/.test(c) ? 2.6 : 1) * (0.75 + 0.5 * ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1));
+  const tot = w.reduce((a, b) => a + b, 0); let acc = 0, target = clamp(p) * tot;
+  for (let i = 0; i < w.length; i++) { acc += w[i]; if (acc > target) return i; }
+  return ch.length;
+}
+function panelContent(f2, sendT) {
+  const FS = 46, LH = 62, FONT = `500 ${FS}px ${E.SANS}`, TX = 64, TY = 836, TW = 840;
+  ctx.fillStyle = S.colors.panelTitle; ctx.font = `600 38px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText(S.panelTitle, 44, 66);
+  ctx.strokeStyle = S.colors.panelTitle; ctx.lineWidth = 3; [[830, 66], [880, 66]].forEach(([x, y]) => { ctx.strokeRect(x - 13, y - 13, 26, 26); });
+  ctx.beginPath(); ctx.moveTo(917, 53); ctx.lineTo(943, 79); ctx.moveTo(943, 53); ctx.lineTo(917, 79); ctx.stroke();
+  E.rr(28, 790, 919, 410, 28); ctx.fillStyle = S.colors.input; ctx.fill();
+  const sent = sendT > 0, p = easeInOut(prog(f2, 5, 29)), all = Array.from(S.typed), n = typedCount(S.typed, p);
+  const lines = wrapLines(S.typed, FONT, TW);
+  ctx.textBaseline = "top"; ctx.font = FONT;
+  if (sent) { ctx.globalAlpha *= easeOut(prog(sendT, .2, 1)); ctx.fillStyle = S.colors.placeholder; ctx.fillText(S.after, TX, TY); ctx.globalAlpha = 1; }
+  else if (n > 0 || f2 >= 5) {
+    // 줄마다 보여줄 글자 수 계산
+    let left = n, cx = TX, cy = TY; ctx.fillStyle = S.colors.inputText;
+    for (let i = 0; i < lines.length; i++) { const lc = Array.from(lines[i]); const take = Math.min(left, lc.length); const part = lc.slice(0, take).join("");
+      if (take > 0) ctx.fillText(part, TX, TY + i * LH);
+      if (take > 0 || i === 0) { cx = TX + ctx.measureText(part.replace(/ $/, "")).width; cy = TY + i * LH; }
+      left -= take; if (left <= 0) break; }
+    const typing = n > 0 && n < all.length;
+    if (typing || Math.floor(f2 / 5) % 2 === 0) { ctx.fillStyle = S.accent; ctx.fillRect(cx + 5, cy + 2, 4, FS + 8); }
+    if (n === 0 && f2 < 5) { ctx.fillStyle = S.colors.placeholder; ctx.fillText(S.placeholder, TX, TY); }
+  } else { ctx.fillStyle = S.colors.placeholder; ctx.fillText(S.placeholder, TX, TY); }
+  const ready = n >= all.length && !sent;
+  ctx.fillStyle = S.colors.panelTitle; ctx.font = `300 60px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText("+", 62, 1140);
+  const bp = ready ? 1 + .08 * Math.sin(Math.PI * clamp((f2 - 29) / 3)) : 1;   // 다 쓰면 보내기 버튼이 톡
+  ctx.save(); ctx.translate(890, 1140); ctx.scale(bp, bp);
+  ctx.beginPath(); ctx.arc(0, 0, 36, 0, 7); ctx.fillStyle = ready || (n > 0 && !sent) ? S.colors.send : E.hexA(S.colors.send, .2); ctx.fill();
+  ctx.strokeStyle = S.colors.panel; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(0, 14); ctx.lineTo(0, -14); ctx.moveTo(-11, -3); ctx.lineTo(0, -14); ctx.lineTo(11, -3); ctx.stroke(); ctx.restore();
+  if (sent) { const b = easeOut(sendT); ctx.save(); ctx.globalAlpha *= b; const BF = `500 42px ${E.SANS}`, BL = 56;
+    const bl = wrapLines(S.sent, BF, 680).map(l => l.replace(/ $/, "")); ctx.font = BF;
+    const bw = Math.max(...bl.map(l => ctx.measureText(l).width)) + 72, bh = bl.length * BL + 52, bx = 947 - bw, by = 760 - bh + lerp(70, 0, b);
+    E.rr(bx, by, bw, bh, 30); ctx.fillStyle = S.colors.bubble; ctx.fill(); ctx.fillStyle = S.colors.bubbleText; ctx.textBaseline = "top"; bl.forEach((l, i) => ctx.fillText(l, bx + 36, by + 26 + i * BL)); ctx.restore(); }
+}
+// ② 댓글 시트 (82프레임 기준 타이밍, k 로 길이에 맞춰 늘고 줄어듦)
+function avatarCircle(x, y, r, key, color) {
+  const a = im(key); ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+  if (a) { ctx.clip(); const sc = Math.max(2 * r / a.naturalWidth, 2 * r / a.naturalHeight); ctx.drawImage(a, x - a.naturalWidth * sc / 2, y - a.naturalHeight * sc / 2, a.naturalWidth * sc, a.naturalHeight * sc); }
+  else { ctx.fillStyle = color; ctx.fill(); }
+  ctx.restore();
+}
+function reply(g, k) {   // 게시자 답글: 작성 중 점 → 답글 등장 → 글자 타이핑 (원댓글과 같은 크기)
+  const C = S.colors, AX = 260, AY = 380, TX = AX + 74;
+  const dots = prog(g, 38 * k, 45 * k);
+  if (dots > 0 && dots < 1) {
+    const da = Math.min(easeOut(prog(dots, 0, .2)), 1 - easeIn(prog(dots, .85, 1)));
+    ctx.save(); ctx.globalAlpha *= da; avatarCircle(AX, AY, 46, "replyAvatar", C.replyAvatar);
+    E.rr(TX, AY - 36, 160, 72, 36); ctx.fillStyle = C.cInput; ctx.fill();
+    for (let i = 0; i < 3; i++) { const bo = Math.sin(g * .9 - i * .9) * 7; ctx.beginPath(); ctx.arc(TX + 44 + i * 36, AY + Math.min(0, bo), 10, 0, 7); ctx.fillStyle = C.username; ctx.fill(); }
+    ctx.restore();
+  }
+  const rp = easeOut(prog(g, 44 * k, 48 * k)); if (rp <= 0) return;
+  ctx.save(); ctx.globalAlpha *= rp; ctx.translate(0, lerp(-24, 0, rp));
+  avatarCircle(AX, AY, 46, "replyAvatar", C.replyAvatar);
+  ctx.textBaseline = "middle"; ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.replyName, TX, AY - 32);
+  let nx = TX + ctx.measureText(S.replyName).width + 14;
+  if (S.replyTime) { ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.replyTime, nx, AY - 32); }
+  const ch = Array.from(S.replyText), txt = ch.slice(0, Math.round(ch.length * prog(g, 46 * k, 58 * k))).join("");
+  ctx.textBaseline = "top"; ctx.fillStyle = C.replyText; const ly = E.wrap(txt, TX, AY + 10, 1020, 56, `700 42px ${E.SANS}`, `700 42px ${E.SANS}`);
+  if (g < 60 * k && Math.floor(g / 3) % 2 === 0) { ctx.fillStyle = S.accent; ctx.font = `700 42px ${E.SANS}`; const last = txt.split("\n").pop(); ctx.fillRect(Math.min(TX + ctx.measureText(last).width + 4, TX + 1020), ly, 4, 48); }
+  ctx.restore();
+}
+function heartPath(cx, cy, sz) { ctx.beginPath(); ctx.moveTo(cx, cy + sz * .9); ctx.bezierCurveTo(cx - sz * 1.7, cy - sz * .1, cx - sz * .9, cy - sz * 1.35, cx, cy - sz * .45); ctx.bezierCurveTo(cx + sz * .9, cy - sz * 1.35, cx + sz * 1.7, cy - sz * .1, cx, cy + sz * .9); ctx.closePath(); }
+function sheet(g, k) {
+  const C = S.colors, ch = Array.from(S.keyword), tp = prog(g, 14 * k, 22 * k), posted = g >= 31.5 * k;
+  const typed = posted ? "" : ch.slice(0, Math.round(ch.length * tp)).join("");
+  if (S.keyMode === "green") { E.rr(0, 0, W, H, [44, 44, 0, 0]); ctx.fillStyle = C.sheet; ctx.fill(); } else E.shadowed(() => { E.rr(0, 0, W, H, [44, 44, 0, 0]); ctx.fillStyle = C.sheet; ctx.fill(); }, 50, -8, "rgba(0,0,0,.5)");   // 크로마키일 땐 그림자 없음
+  E.rr(0, 0, W, H, [44, 44, 0, 0]); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+  E.rr(675, 24, 90, 10, 5); ctx.fillStyle = C.grabber; ctx.fill();
+  ctx.fillStyle = C.sheetTitle; ctx.font = `700 46px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.sheetTitle, 720, 124); ctx.textAlign = "left";
+  const cp = easeOut(prog(g, 32 * k, 36 * k));
+  if (cp > 0) {
+    ctx.save(); ctx.globalAlpha *= cp; ctx.translate(0, lerp(-24, 0, cp));
+    avatarCircle(140, 228, 46, "avatar", C.avatar);
+    ctx.font = `500 30px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(`${S.username}  ${S.timeAgo}`, 214, 196);
+    ctx.font = `700 42px ${E.SANS}`; ctx.fillStyle = C.commentText; ctx.fillText(S.keyword, 214, 260);
+    const ln = easeOut(prog(g, 66 * k, 70 * k)); if (ln > 0 && S.likedNote) { ctx.globalAlpha *= ln; ctx.font = `500 26px ${E.SANS}`; ctx.fillStyle = C.username; ctx.fillText(S.likedNote, 214, 308); ctx.globalAlpha /= ln; }
+    const hp = prog(g, 62 * k, 66 * k), hk = hp > 0 ? lerp(.3, 1, back(hp)) : 1;
+    ctx.save(); ctx.translate(1330, 228); ctx.scale(hk, hk);
+    if (hp > 0) { heartPath(0, 0, 26); ctx.fillStyle = C.heartOn; ctx.fill(); } else { heartPath(0, 0, 24); ctx.strokeStyle = C.heartOff; ctx.lineWidth = 4; ctx.stroke(); }
+    ctx.restore(); ctx.restore();
+    reply(g, k);
+  }
+  return typed;
+}
+function inputBar(g, k, typed) {
+  const C = S.colors, I = INPUT;
+  E.rr(I.x, I.y, I.w, I.h, I.h / 2); ctx.fillStyle = C.cInput; ctx.fill(); ctx.strokeStyle = C.cInputLine; ctx.lineWidth = 3; ctx.stroke();
+  avatarCircle(I.x + 84, I.y + I.h / 2, 46, "avatar", C.avatar);
+  ctx.textBaseline = "middle"; ctx.font = `${typed ? 600 : 400} 44px ${E.SANS}`;
+  if (typed) { ctx.fillStyle = C.cInputText; ctx.fillText(typed, I.x + 164, I.y + I.h / 2 + 2); if (Math.floor(g / 3) % 2 === 0) { ctx.fillStyle = S.accent; ctx.fillRect(I.x + 170 + ctx.measureText(typed).width, I.y + 50, 4, 60); } }
+  else { ctx.fillStyle = C.cPlaceholder; ctx.fillText(S.cPlaceholder, I.x + 164, I.y + I.h / 2 + 2); }
+  const press = Math.exp(-Math.pow((g - 31 * k) / (1.2 * k), 2));
+  ctx.save(); ctx.globalAlpha *= typed ? 1 : .5; ctx.fillStyle = C.post; ctx.font = `700 ${42 * (1 - .15 * press)}px ${E.SANS}`; ctx.textAlign = "right"; ctx.fillText(S.postBtn, I.x + I.w - 48, I.y + I.h / 2 + 2); ctx.restore();
+}
+function rnd(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function floatHearts(t, mx, my) {   // t = 하트 눌린 뒤 프레임
+  if (t <= 0) return;
+  const n = Math.max(1, Math.round(+S.heartCount)), life = 42, rise = +S.heartRise;
+  const span = Math.max(1, +S.d3 + +S.d6 - (62 * +S.d3 / 82) - life * .55);   // 마지막 하트도 화면 끝 전에 거의 다 올라가게
+  for (let i = 0; i < n; i++) {
+    const st = n > 1 ? i * span / (n - 1) * (0.85 + .3 * rnd(i)) : 0, p = (t - st) / (life * (0.85 + .35 * rnd(i + 50)));
+    if (p <= 0 || p >= 1) continue;
+    const dir = rnd(i + 9) - .5, x = mx - 10 + dir * 90 + Math.sin(i * 2.1 + p * 5) * 34, y = my - 20 - easeOut(p) * rise * (0.75 + .4 * rnd(i + 20));
+    const sz = 24 * (0.7 + .6 * rnd(i + 30)) * lerp(.4, 1, back(clamp(p * 3)));
+    ctx.save(); ctx.globalAlpha *= 1 - easeIn(prog(p, .55, 1)); ctx.translate(x, y); ctx.rotate(dir * .7 + Math.sin(p * 6 + i) * .15); heartPath(0, 0, sz); ctx.fillStyle = S.colors.floatHeart; ctx.fill(); ctx.restore();
+  }
+}
+let inEnding = false;
+function darkScene(f) {
+  const t = T();
+  if (f < t.s3) { bg(); // 입력 → 전송
+    const f2 = f - t.s2, d = +S.d2, k = d / 36, send = prog(f2, 31 * k, 35 * k);
+    const op = easeOut(prog(f2, 0, 7 * k)), ps = lerp(.92, 1, back(prog(f2, 0, 9 * k))); // 패널 등장
+    ctx.save(); ctx.globalAlpha *= op; ctx.translate(PANEL.x + PANEL.w / 2, PANEL.y + PANEL.h / 2); ctx.scale(ps, ps); ctx.translate(-PANEL.w / 2, -PANEL.h / 2);
+    panelBox({ x: 0, y: 0, w: PANEL.w, h: PANEL.h }); panelContent(f2 / k, send); ctx.restore();
+    return;
+  }
+  // 댓글 시트 (위쪽은 투명 배경) → 키워드 입력 · 게시 · 하트
+  if (S.keyMode === "green" && !inEnding) { ctx.fillStyle = S.keyBg; ctx.fillRect(0, 0, W, H); }   // 배경 없는 부분: 크로마키 초록
+  const g = Math.min(f - t.s3, +S.d3), k = +S.d3 / 82;
+  const up = kf(g, [[1 * k, 0], [6 * k, .97], [8 * k, 1]]), top = lerp(H + 40, SHEET_TOP, clamp(up));
+  if (top >= H) return;
+  ctx.save(); ctx.translate(0, top);
+  const typed = sheet(g, k); inputBar(g, k, typed); floatHearts(Math.min(f - t.s3, +S.d3 + +S.d6) - 62 * k, 1330, 228);
+  ctx.restore();
+}
+function logoCard(x, y, size, a) {
+  ctx.save(); ctx.globalAlpha *= a; E.rr(x - size / 2, y - size / 2, size, size, size * .21); ctx.fillStyle = S.colors.logoCard; ctx.fill();
+  if (im("logo")) { ctx.clip(); E.cover(im("logo"), x - size / 2, y - size / 2, size, size, size * .21, false); }
+  else { ctx.fillStyle = S.logoColor; ctx.font = `700 ${size * .52}px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.logoText, x, y + size * .03); }
+  ctx.restore();
+}
+
+E.start({
+  title: "모션 06 · AI 패널 → 댓글 → 로고 엔딩 (단색 배경)", group: "릴스01 템플릿", file: "motion06", state: S, alpha: true,
+  intro: "채팅 패널에 문장이 입력되고, 댓글 시트에 키워드가 게시된 뒤 화면이 로고 크기로 접히고, 로고 배경색 한 가지로 이어지는 화면에 로고와 브랜드명만 남아요.",
+  sections: [
+    { title: "① 채팅 입력", durKey: "2", rows: [[{ key: "panelTitle", label: "패널 제목" }, { key: "placeholder", label: "입력칸 안내 문구" }],
+        [{ type: "textarea", key: "typed", label: "타이핑되는 문장" }], [{ type: "textarea", key: "sent", label: "보낸 메시지 (말풍선)" }],
+        [{ key: "after", label: "보낸 뒤 입력칸 문구" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 20, max: 160 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.bgTop", label: "배경 위쪽 (②③)" }, { type: "color", key: "colors.bgBottom", label: "배경 아래쪽 (②③)" }], [{ type: "color", key: "accent", label: "입력 커서" }], [{ type: "color", key: "colors.panel", label: "채팅 패널" }, { type: "color", key: "colors.panelTitle", label: "패널 제목 · 아이콘" }], [{ type: "color", key: "colors.input", label: "입력칸" }, { type: "color", key: "colors.inputText", label: "입력 글자" }], [{ type: "color", key: "colors.placeholder", label: "안내 문구" }, { type: "color", key: "colors.send", label: "보내기 버튼" }], [{ type: "color", key: "colors.bubble", label: "말풍선" }, { type: "color", key: "colors.bubbleText", label: "말풍선 글자" }]] },
+    { title: "② 댓글", durKey: "3", hint: "채팅 장면과 따로, 댓글 시트가 올라와 키워드가 입력·게시되고 게시자가 답글을 단 뒤 하트가 눌려요. 시트 위쪽은 기본 초록(크로마키)이라 캡컷에서 크로마키로 지우면 돼요. 아래에서 '투명'으로 바꾸면 투명 배경 내보내기도 돼요.",
+      rows: [[{ type: "select", key: "keyMode", label: "배경 없는 부분", options: [["green", "초록 배경 (크로마키)"], ["clear", "투명 (투명 배경 내보내기용)"]] }, { type: "color", key: "keyBg", label: "크로마키 색" }],
+        [{ key: "sheetTitle", label: "시트 제목" }, { key: "cPlaceholder", label: "입력칸 안내 문구" }], [{ key: "keyword", label: "입력되는 댓글 (키워드)" }, { key: "postBtn", label: "게시 버튼 글자" }],
+        [{ key: "username", label: "아이디" }, { key: "timeAgo", label: "시간 표시" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 30, max: 200 }],
+        [{ type: "sub", label: "하트 떠오르기" }], [{ type: "number", key: "d6", label: "하트 더 이어지는 길이 (프레임)", min: 0, max: 240 }, { type: "number", key: "heartCount", label: "하트 개수", min: 1, max: 60 }], [{ type: "number", key: "heartRise", label: "올라가는 높이 (px)", min: 100, max: 1500 }],
+        [{ type: "images", key: "img.avatar", label: "댓글 단 사람 프로필 (입력창·댓글에 같이 쓰여요, 비우면 색 원)" }],
+        [{ type: "sub", label: "게시자 답글" }], [{ type: "images", key: "img.replyAvatar", label: "게시자 프로필 사진" }, { key: "replyName", label: "게시자 이름" }],
+        [{ key: "replyTime", label: "답글 시간 표시" }], [{ type: "textarea", key: "replyText", label: "답글 내용 (한 글자씩 써짐)" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.sheet", label: "시트" }, { type: "color", key: "colors.sheetTitle", label: "시트 제목" }], [{ type: "color", key: "colors.grabber", label: "손잡이 막대" }, { type: "color", key: "colors.avatar", label: "댓글 프로필 (사진 없을 때)" }],
+        [{ type: "color", key: "colors.cInput", label: "입력칸" }, { type: "color", key: "colors.cInputLine", label: "입력칸 테두리" }], [{ type: "color", key: "colors.cPlaceholder", label: "안내 문구" }, { type: "color", key: "colors.cInputText", label: "입력 글자" }],
+        [{ type: "color", key: "colors.post", label: "게시 버튼" }, { type: "color", key: "colors.username", label: "아이디 · 시간" }], [{ type: "color", key: "colors.commentText", label: "댓글 글자" }, { type: "color", key: "colors.heartOff", label: "하트 (누르기 전)" }],
+        [{ type: "color", key: "colors.heartOn", label: "하트 (빨강)" }, { type: "color", key: "colors.floatHeart", label: "떠오르는 하트" }], [{ type: "color", key: "colors.replyAvatar", label: "게시자 프로필 (사진 없을 때)" }, { type: "color", key: "colors.replyText", label: "답글 글자" }]] },
+    { title: "③ 로고 엔딩", durKey: "5", hint: "접힌 뒤 화면 전체가 로고 배경색 하나로 이어져요.", rows: [[{ type: "images", key: "img.logo", label: "로고 이미지 (정사각형, 비우면 글자)" }, { key: "logoText", label: "로고 글자 (이미지 없을 때)" }],
+        [{ key: "brand", label: "브랜드명 (아래에 타이핑)" }],
+        [{ type: "number", key: "d4", label: "접히는 길이", min: 6, max: 40 }, { type: "number", key: "d5", label: "엔딩 길이", min: 12, max: 120 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.logoCard", label: "엔딩 배경 (로고 배경)" }, { type: "color", key: "logoColor", label: "로고 글자" }], [{ type: "color", key: "brandColor", label: "브랜드명" }]] },
+  ],
+  durations: { 2: S => +S.d2, 3: S => +S.d3 + +S.d6, 5: S => +S.d4 + +S.d5 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T();
+    if (f < t.s4) { darkScene(f); return; }
+    // 어두운 화면 전체가 로고 카드 크기로 접힘
+    ctx.fillStyle = S.colors.logoCard; ctx.fillRect(0, 0, W, H);
+    const c = easeInOut(prog(f - t.s4, 0, +S.d4)), size = 430;
+    const w = lerp(W, size, c), h = lerp(H, size, c), rad = lerp(0, size * .21, c);
+    if (c < 1) { ctx.save(); E.rr(720 - w / 2, 1280 - h / 2, w, h, rad); ctx.clip(); ctx.translate(720, 1280); const s = lerp(1, size / 1100, c); ctx.scale(s, s); ctx.translate(-720, -1280); inEnding = true; darkScene(t.s4 - .01); inEnding = false; ctx.restore(); }
+    const fl = prog(c, .55, 1);
+    const pop = f >= t.s5 ? 1 + .06 * Math.sin(Math.PI * prog(f - t.s5, 0, 6)) : 1;
+    if (fl > 0) logoCard(720, 1280, size * pop, fl);
+    if (f >= t.s5) { const bt = prog(f - t.s5, 3, 3 + Math.max(6, S.brand.length * .9));
+      ctx.save(); ctx.fillStyle = S.brandColor; ctx.font = `700 46px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.brand.slice(0, Math.round(S.brand.length * bt)), 720, 2440); ctx.restore(); }
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>

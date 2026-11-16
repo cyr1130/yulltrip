@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 11</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="assets.js"></script><script src="engine.js"></script></head>
+<body>
+<script>
+const E = Engine; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeInOut, back, kf, kf2 } = E;
+const CUR = { get 0() { return S.colors.c1; }, get 1() { return S.colors.c2; }, get 2() { return S.colors.c3; } };
+
+const S = {
+  accent: "#d6ff1e", bg: "#0c0f12",
+  genIcon: "✦", img: { genIcon: [] },
+  colors: { note1: "#fffbd2", note2: "#b0fbbe", noteText: "#1e1e1e", promptBg: "#26282b", promptText: "#e4e4e4", genIconColor: "#111111", genBtn: "#d6ff1e",
+            label: "#6f7472", line: "#e8e8e8", title1: "#ffffff", bubble: "#2d6ef0", select: "#ffffff", c1: "#8e95ff", c2: "#ef4f4f", c3: "#f4b223", cursorText: "#ffffff" },
+  a: { images: [], cursor: "disacube", emoji: "👍", dur: 60, bounce: true, fadeOut: false },
+  b: { note1: "**Hook:** Adil controls a hologram with hand gestures. A beefy guy swings a sledgehammer behind him.",
+       note2: "At the last second, Adil connects a node to a \"rubber\" block — the sledgehammer turns rubber, hits him, and bounces off. + motion graphics.",
+       footer: "modernisttadpole", cursors: "Alex Egorov, Temirlan", dur: 34 },
+  c: { prompt: "Adil controls a hologram with hand gestures. A beefy guy swings a sledgehammer behind him. At the last second, Adil connects a node to a \"rubber\" block — the sledgehammer turns rubber, hits him, and bounces off. + motion graphics.", inputs: [], output: [], dur: 40 },
+  d: { line1: "", line2: "", extras: [], bubble1: "", bubble2: "", ring: "", dur: 52, notes: false, zoomEnd: true, zoomLen: 16, zoomScale: 1.6 },
+};
+
+// ---------- 레이아웃 ----------
+function layoutA() {
+  const imgs = S.a.images.slice(0, 3); let h = 465; const gap = 48;
+  if (!imgs.length) return [];
+  const ws = imgs.map(o => h * (o.img.naturalWidth / o.img.naturalHeight));
+  let total = ws.reduce((a, b) => a + b, 0) + gap * (imgs.length - 1);
+  const k = Math.min(1, 1240 / total); h *= k; total *= k;
+  let x = (W - total) / 2; const y = 1005 + (465 - h) / 2;
+  return imgs.map((o, i) => { const r = { o, x, y, w: ws[i] * k, h }; x += ws[i] * k + gap * k; return r; });
+}
+function layoutC() {
+  const ins = S.c.inputs.slice(0, 4), n = ins.length, nodes = [];
+  if (n === 1) nodes.push({ o: ins[0], x: 189, y: 1010, w: 540, h: 537 });
+  else if (n > 1) {
+    const row1 = ins.slice(0, 2), row2 = ins.slice(2);
+    row1.forEach((o, i) => nodes.push({ o, x: 189 + i * 291, y: 891, w: 249, h: 249 }));
+    if (row2.length === 1) nodes.push({ o: row2[0], x: 189, y: 1269, w: 540, h: 537 });
+    if (row2.length === 2) row2.forEach((o, i) => nodes.push({ o, x: 189 + i * 291, y: 1269, w: 249, h: 537 }));
+  }
+  const rows = [...new Set(nodes.map(n => n.y))].map(y => { const rn = nodes.filter(n => n.y === y); return { y: y + rn[0].h / 2, right: Math.max(...rn.map(n => n.x + n.w)) }; });
+  return { nodes, rows };
+}
+const BOUNCE = 13;
+function aLen() { const n = Math.max(1, Math.min(3, S.a.images.length)); const landed = (n === 1 ? 0 : 21 + (n - 2) * 14) + 17; return S.a.bounce ? Math.max(+S.a.dur, landed + BOUNCE + (n - 1) * 2 + 4) : +S.a.dur; }
+const timeline = () => { const a = aLen(), b = +S.b.dur, c = +S.c.dur, d = +S.d.dur; return { a: [0, a], b: [a + 2, a + 2 + b], c: [a + 2 + b, a + 2 + b + c], d: [a + 2 + b + c, a + 2 + b + c + d], total: a + 2 + b + c + d }; };
+
+// ---------- 장면 ----------
+function sceneA(f, dur) {
+  const L = layoutA(); if (!L.length) return;
+  const starts = L.map((_, i) => i === 0 ? 0 : 21 + (i - 1) * 14);
+  const n = L.length, landed = starts[n - 1] + 17;
+  const bStart = Math.max(dur - 4 - BOUNCE - (n - 1) * 2, landed);
+  const outStart = S.a.bounce ? Math.max(dur - 4, bStart + BOUNCE + (n - 1) * 2 - 2) : dur - 4;
+  const out = S.a.fadeOut ? easeInOut(prog(f, outStart, outStart + 5.5)) : 0;
+  ctx.save(); ctx.globalAlpha = 1 - out; ctx.translate(720, 1280); ctx.scale(1 - .05 * out, 1 - .05 * out); ctx.translate(-720, -1280);
+  L.forEach((r, i) => {
+    const t = f - starts[i]; if (t < 0) return;
+    const fromLeft = i === 0, dist = fromLeft ? -(r.x + r.w + 100) : (W - r.x + 100);
+    const dx = fromLeft ? kf(t, [[0, dist], [8, -40], [12, 12], [16, 0]]) : kf(t, [[0, dist], [5, dist * .15], [13, 0]]);
+    const rx = kf(t, [[0, 72], [6, 46], [10, 18], [16, 0]]);
+    const rz = fromLeft ? kf(t, [[0, -10], [6, -6], [10, 3], [16, 0]]) : kf(t, [[0, -14], [5, -8], [13, 3], [19, 0]]);
+    const bt = f - bStart - i * 2; let lift = 0, sq = 0;
+    if (S.a.bounce && bt > 0 && bt < BOUNCE) { const up = 6.5, p1 = bt / up;
+      lift = bt < up ? -90 * Math.sin(Math.PI * p1) : -18 * Math.sin(Math.PI * clamp((bt - up) / (BOUNCE - up)));
+      sq = 0.07 * Math.exp(-Math.pow((bt - up) / 1.3, 2)) - (bt < up ? 0.03 * Math.sin(Math.PI * p1) : 0); }
+    ctx.save(); ctx.translate(r.x + r.w / 2 + dx, r.y + r.h + lift); ctx.rotate(rz * Math.PI / 180);
+    ctx.scale(1 + sq * .8, 1 - sq); ctx.scale(1 + rx / 400, Math.cos(rx * Math.PI / 180));
+    E.cover(r.o.img, -r.w / 2, -r.h, r.w, r.h, 8);
+    if (rx > 1) { const g = ctx.createLinearGradient(0, -r.h, 0, -r.h * .55); g.addColorStop(0, `rgba(120,120,120,${rx / 80})`); g.addColorStop(1, "rgba(120,120,120,0)"); ctx.fillStyle = g; E.rr(-r.w / 2, -r.h, r.w, r.h, 8); ctx.fill(); }
+    ctx.restore();
+    const ep = prog(f, starts[i] + (i === 0 ? 37 : 11), starts[i] + (i === 0 ? 41 : 15));
+    if (ep > 0 && S.a.emoji) { ctx.save(); ctx.translate(r.x + r.w * .32, r.y + r.h - 10 + lift); const k = lerp(.2, 1, back(ep)); ctx.scale(k, k); ctx.globalAlpha *= clamp(ep * 2); E.emoji(S.a.emoji, 0, 0, 52); ctx.restore(); }
+  });
+  const keys = [[4, L[0].x + L[0].w * .3, L[0].y + 70]];
+  L.forEach((r, i) => keys.push([starts[i] + 14, r.x + r.w * .55, r.y + 110]));
+  keys.push([Math.max(keys[keys.length - 1][0] + 8, 42), L[0].x + L[0].w * .78, L[0].y + L[0].h + 40]);
+  keys.sort((a, b) => a[0] - b[0]);
+  const [cx, cy] = kf2(f, keys);
+  if (f >= 4) E.cursor(cx, cy, "", CUR[0], 1.1, 1, S.colors.cursorText);   // 이름표 없이, 마지막 장면과 같은 크기
+  ctx.restore();
+}
+function sceneB(f) {
+  const names = S.b.cursors.split(",").map(s => s.trim());
+  const two = S.b.note2.trim().length > 0;
+  const zs = kf(f, [[1, 632 / 672], [33, 1]], t => t);
+  const [yx, yy] = two ? kf2(f, [[1, 48, 672], [8, 180, 716], [14, 192, 712], [22, 192, 720], [33, 160, 680]]) : kf2(f, [[1, 360, 900], [33, 384, 946]]);
+  const yp = prog(f, 0, 4);
+  ctx.save(); ctx.globalAlpha = clamp(yp * 2);
+  ctx.translate(yx + 336 * zs, yy + 334 * zs); const pk = lerp(.55, 1, back(yp)); ctx.scale(pk, pk); ctx.translate(-336 * zs, -334 * zs);
+  E.note(0, 0, zs, S.b.note1, S.colors.note1, S.b.footer, 1 - easeOut(prog(f, 2, 10)), "bottom", S.colors.noteText);
+  ctx.restore();
+  if (two && f >= 6) { const [gx, gy] = kf2(f, [[6, 980, 1760], [8, 764, 1348], [14, 608, 1288], [22, 612, 1288], [33, 604, 1288]]); E.note(gx, gy, zs, S.b.note2, S.colors.note2, S.b.footer, 1 - easeOut(prog(f, 7, 17)), "corner", S.colors.noteText); }
+  const t = f / FPS;
+  if (f >= 3) { const [x, y] = kf2(f, [[3, 330, 1340], [14, 448, 1468], [22, 360, 1680], [33, 330, 1700]]); E.cursor(x + 4 * Math.sin(t * 6), y, names[0], CUR[1], 1, 1, S.colors.cursorText); }
+  if (f >= 7 && names[1]) { const [x, y] = kf2(f, [[7, 1400, 2000], [14, 1240, 1920], [22, 1140, 1480], [33, 1092, 1134]]); E.cursor(x, y + 4 * Math.cos(t * 5), names[1], CUR[2], 1, 1, S.colors.cursorText); }
+}
+function group(f) {
+  const { nodes, rows } = layoutC();
+  E.shadowed(() => { const g = ctx.createLinearGradient(-556, 1048, -8, 1508); g.addColorStop(0, S.colors.promptBg); g.addColorStop(1, S.colors.promptBg); E.rr(-556, 1048, 548, 460, 22); ctx.fillStyle = g; ctx.fill(); }, 44, 18, "rgba(0,0,0,.5)");
+  const shown = S.c.prompt.slice(0, Math.round(S.c.prompt.length * prog(f, 0, 13)));
+  ctx.save(); ctx.fillStyle = S.colors.promptText; ctx.textBaseline = "top"; E.rr(-556, 1048, 548, 340, 22); ctx.clip();
+  E.wrap(shown, -524, 1078, 484, 36, `30px ${E.SANS}`, `30px ${E.SANS}`); ctx.restore();
+  E.rr(-130, 1386, 96, 96, 24); ctx.fillStyle = S.colors.genBtn; ctx.fill();
+  E.symbol(S.genIcon, S.img.genIcon, -82, 1433, 46, S.colors.genIconColor);
+  E.dot(28, 1278);
+  const lp = easeOut(prog(f, 8, 15));
+  rows.forEach(r => { E.bez([28, 1278, 80, lerp(1278, r.y, .3), 96, r.y, 159, r.y], lp, { color: S.colors.line }); E.dot(159, r.y, prog(f, 13, 15)); });
+  nodes.forEach((nd, i) => {
+    const p = prog(f, 12 + i * 2, 17 + i * 2); if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha *= clamp(p * 2); const k = lerp(.85, 1, back(p));
+    ctx.translate(nd.x + nd.w / 2, nd.y + nd.h / 2); ctx.scale(k, k); ctx.translate(-nd.x - nd.w / 2, -nd.y - nd.h / 2);
+    E.label(nd.o.label, nd.x, nd.y - 29, S.colors.label); E.cover(nd.o.img, nd.x, nd.y, nd.w, nd.h, 10); ctx.restore();
+  });
+  const rp = easeOut(prog(f, 20, 26));
+  rows.forEach(r => { E.dot(r.right + 24, r.y, prog(f, 18, 20)); E.bez([r.right + 24, r.y, r.right + 100, r.y + (1278 - r.y) * .1, 862, lerp(r.y, 1278, .6), 888, 1278], rp, { color: S.colors.line }); });
+  E.dot(888, 1278, prog(f, 24, 26));
+  const o = easeOut(prog(f, 24, 31));
+  if (o > 0 && S.c.output[0]) { ctx.save(); ctx.globalAlpha *= o; E.cover(S.c.output[0].img, 921 + lerp(90, 0, o), 933, 390, 690, 12); ctx.restore(); }
+}
+function sceneCD(fc, fd, cDur) {
+  const P = { x: 465 + 530 * .42, y: 1179 - 891 * .42 }, pk = cDur / 40;
+  const panX = kf(fc, [[0, 996], [8 * pk, 936], [14 * pk, 864], [20 * pk, 676], [26 * pk, 208], [32 * pk, 56], [38 * pk, 0]]);
+  const z = easeInOut(prog(fd, 0, 11)), drift = 1 + .03 * easeOut(prog(fd, 9, +S.d.dur));
+  const s = Math.exp(lerp(Math.log(1 / .42), 0, z)) * drift;
+  const qx = lerp(panX, P.x, z), qy = lerp(0, P.y, z);
+  // 가로 중앙 정렬: 위 이미지 묶음 / 가운데 노드 그룹 / 아래 레퍼런스 묶음을 각각 화면 가운데(x=720)에 맞춤
+  const LA0 = layoutA(), CX = 720;
+  let topDX = 0; if (LA0.length) { const lx = Math.min(...LA0.map(r => r.x)), lw = Math.max(...LA0.map(r => r.x + r.w)) - lx, k0 = Math.min(669 / lw, 471 / 465); topDX = CX - (150 + lw * k0 / 2); }
+  const gDX = (CX - 842) * z;
+  const ex0 = S.d.extras, bxs = [];
+  if (ex0[0]) bxs.push(132, 444); if (ex0[1]) bxs.push(444, 834); if (S.d.ring) bxs.push(945, 1275);
+  const botDX = bxs.length ? CX - (Math.min(...bxs) + Math.max(...bxs)) / 2 : 0;
+  // 마지막: 가운데 선택 박스(노드 그룹)를 화면 중앙으로 확대
+  const ze = S.d.zoomEnd ? easeInOut(prog(fd, +S.d.dur - +S.d.zoomLen, +S.d.dur - 1)) : 0;
+  const bx = (842 + gDX - P.x) * s + qx, by = (1366 - P.y) * s + qy, Z = lerp(1, +S.d.zoomScale, ze);
+  ctx.save(); ctx.translate(bx + (720 - bx) * ze, by + (1280 - by) * ze); ctx.scale(Z, Z); ctx.translate(-bx, -by);
+  ctx.save(); ctx.translate(qx, qy); ctx.scale(s, s); ctx.translate(-P.x, -P.y);
+  const dIn = easeOut(prog(fd, 0, 6));
+  // 덩어리 간격: 가운데 노드 그룹은 고정, 위 덩어리는 아래로 / 아래 덩어리는 위로 당김
+  const TOP_DY = 300, BOT_DY = -80;
+  if (dIn > 0) {
+    ctx.save(); ctx.globalAlpha = dIn;
+    ctx.save(); ctx.translate(topDX, TOP_DY);
+    const LA = layoutA();
+    if (LA.length) { const bx = Math.min(...LA.map(r => r.x)), bw = Math.max(...LA.map(r => r.x + r.w)) - bx, k = Math.min(669 / bw, 471 / 465);
+      LA.forEach(r => E.cover(r.o.img, 150 + (r.x - bx) * k, 399 + (r.y - 1005) * k, r.w * k, r.h * k, 5)); }
+    if (S.d.notes) E.note(822, 285, .513, S.b.note1, S.colors.note1, S.b.footer, 0, "bottom", S.colors.noteText);
+    if (S.d.notes && S.b.note2.trim()) E.note(978, 531, .47, S.b.note2, S.colors.note2, S.b.footer, 0, "bottom", S.colors.noteText);
+    ctx.restore();
+    ctx.save(); ctx.translate(botDX, BOT_DY);
+    const ex = S.d.extras;
+    if (ex[0]) { ctx.save(); ctx.translate(0, kf(fd, [[4, 60], [16, 0]])); E.cover(ex[0].img, 132, 1770, 312, 276, 4); ctx.restore(); }
+    if (ex[1]) { ctx.save(); ctx.translate(0, kf(fd, [[4, 520], [22, 0]])); E.cover(ex[1].img, 444, 1830, 390, 390, 4); ctx.restore(); }
+    if (S.d.ring) { const rk = lerp(.6, 1, back(prog(fd, 4, 12))); ctx.save(); ctx.translate(1110, 2070); ctx.scale(rk, rk);
+      for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2 + (fd / FPS) * .6; ctx.globalAlpha = dIn * prog(fd, 4 + i * .4, 6 + i * .4); E.emoji(S.d.ring, 165 * Math.cos(a), 165 * Math.sin(a), 46); }
+      ctx.restore(); }
+    ctx.restore();
+    ctx.restore();
+  }
+  ctx.save(); ctx.translate(P.x + gDX, P.y); ctx.scale(.42, .42); group(fc); ctx.restore();
+  if (fd >= 0) {
+    // 보라 커서가 왼쪽 위에서 오른쪽 아래로 드래그하며 점선 선택 박스를 그림
+    const L0 = 412 + gDX, T0 = 1112, R0 = 1272 + gDX, B0 = 1620;
+    const dp = easeInOut(prog(fd, 12, 22));
+    const cx = lerp(L0, R0, dp), cy = lerp(T0, B0, dp);
+    if (dp > 0) {
+      ctx.save(); ctx.strokeStyle = S.colors.select; ctx.lineWidth = 3; ctx.setLineDash([12, 9]); ctx.lineDashOffset = -fd * 1.5;
+      ctx.fillStyle = E.hexA(S.colors.select, .05); ctx.fillRect(L0, T0, cx - L0, cy - T0); ctx.strokeRect(L0, T0, cx - L0, cy - T0); ctx.setLineDash([]);
+      const hp = easeOut(prog(fd, 21, 24));   // 다 그리면 모서리 손잡이
+      if (hp > 0) { ctx.globalAlpha *= hp; ctx.fillStyle = S.colors.select; [[L0, T0], [R0, T0], [L0, B0], [R0, B0]].forEach(([x, y]) => { const k = 8 * lerp(.4, 1, back(hp)); ctx.fillRect(x - k, y - k, 2 * k, 2 * k); }); }
+      ctx.restore();
+    }
+    // 커서: 들어와서 → 시작점에서 살짝 누르고 → 끌고 → 끝점에서 멈춤
+    const ca = clamp(prog(fd, 4, 8) * 1.5);
+    if (ca > 0) {
+      const [px, py] = fd < 12 ? kf2(fd, [[4, L0 - 160, T0 - 120], [11, L0, T0]]) : [cx, cy];
+      const press = Math.exp(-Math.pow((fd - 11.5) / 1.2, 2)) + (fd > 22 ? 0 : 0);
+      const jit = fd > 23 ? 3 * Math.sin(fd / 5) : 0;
+      const cs = 1.1 * (1 - .12 * press);   // 이름표 없이 크게
+      E.cursor(px - 5 * cs + jit, py - 3 * cs, "", CUR[0], cs, ca, S.colors.cursorText);
+    }
+    if (S.d.bubble1.trim()) E.bubble(294 + botDX, 1734 + BOT_DY, S.d.bubble1, prog(fd, 13, 17), S.colors.bubble);
+    if (S.d.bubble2.trim()) E.bubble(1026 + gDX, 1086, S.d.bubble2, prog(fd, 19, 23), S.colors.bubble);
+    const w2 = 468 * Math.min(1.4, Math.max(.5, S.d.line2.length / 6));   // 타이틀도 가운데 정렬
+    const next = S.d.line1.trim() ? E.title(S.d.line1, CX - 318, 816, 636, 290, S.colors.title1, fd, 8, 2) : 8;
+    if (S.d.line2.trim()) E.title(S.d.line2, CX - w2 / 2, 1095, w2, 290, S.accent, fd, next + 2, 2);
+  }
+  ctx.restore();
+  ctx.restore();
+}
+E.start({
+  title: "모션 11 · 카드 등장", group: "릴스01 템플릿", file: "motion11", state: S,
+  intro: "이미지 1~3장이 종이가 넘어가듯 날아 들어와요.",
+  images: { "a.images": [{ file: "m2_character_sheet.jpg" }, { file: "m2_room.jpg" }] },
+  sections: [
+    { title: "공통", rows: [[{ type: "color", key: "bg", label: "배경색" }]] },
+    { title: "① 카드 등장", durKey: "a", hint: "이미지 1~3장이 종이가 넘어가듯 날아 들어와요. 첫 장은 왼쪽, 나머지는 오른쪽에서 들어와요.",
+      rows: [[{ type: "images", key: "a.images", max: 3, label: "이미지" }], [{ key: "a.emoji", label: "리액션 이모지" }],
+             [{ type: "number", key: "a.dur", label: "길이 (프레임, 24=1초)", min: 30, max: 200 }, { type: "bool", key: "a.bounce", label: "마지막 바운스" }], [{ type: "bool", key: "a.fadeOut", label: "끝에 어둡게 사라지기" }],
+             [{ type: "sub", label: "색상" }],
+             [{ type: "color", key: "colors.c1", label: "커서 (마지막 드래그 커서와 같음)" }]] },
+  ],
+  durations: { a: aLen },
+  length: () => aLen() + 1,
+  render(f) {
+    ctx = E.ctx;
+    ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H); E.dotGrid();
+    sceneA(Math.min(f, aLen()), aLen());
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>
