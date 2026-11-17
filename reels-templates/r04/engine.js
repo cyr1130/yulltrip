@@ -334,7 +334,7 @@ async function __save(blob, name) {
           <button class="btn primary" id="export">MP4 내보내기</button>${def.alpha ? '<button class="btn" id="exportAlpha" title="투명한 부분을 살린 WebM(VP9 알파)">투명 배경 내보내기</button>' : ""}<span id="status"></span></div>
       </main></div>`;
     const cv = document.getElementById("cv");
-    if (W > H) Object.assign(cv.style, { height: "auto", width: "100%", maxHeight: "calc(100vh - 150px)", aspectRatio: W + " / " + H });
+    if (W > H) Object.assign(cv.style, { height: "auto", width: "auto", maxWidth: "100%", maxHeight: "calc(100vh - 150px)", aspectRatio: W + " / " + H });
     if (def.alpha) cv.style.background = "repeating-conic-gradient(#d9d9d9 0 25%, #f4f4f4 0 50%) 0 0 / 28px 28px";
     ctx = cv.getContext("2d");
     E._bindLayers(ctx, def.setCtx);
