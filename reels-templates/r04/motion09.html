@@ -10,7 +10,7 @@ const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
 const S = {
   keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00",
   items: "세그먼트 편집 ✦\n~크리에이티브 업스케일 ✦\n|\n동영상 편집 ✦\n~연장 ✦\n프레임 캡처 ⌄\n모션 캡처\n길이 다듬기\n오디오 추출\n추가 도구 ⌄\n에이전트에게 요청 ⌄\n|\n(아이콘)\n(아이콘)",
-  view: "fit", zoom: 1, startItem: 5, clickItem: 10, showCursor: true,
+  view: "fit", zoom: 1, introZoom: 2.2, zoomOut: 24, startItem: 5, clickItem: 10, showCursor: true,
   menu: "이 동영상 분석하기\n아이디어 얻기", pick: true, pickItem: "1", pillR: 26,
   colors: { bar: "#1c1c1c", text: "#ececec", icon: "#ececec", sparkle: "#2f9bff", hover: "#ffffff", line: "#3a3a3a", pill: "#2a2a2a", pillText: "#ececec" },
   d1: 16, d2: 80, d3: 30, d4: 44,
@@ -267,6 +267,7 @@ E.start({
         [{ key: "cardLabel", label: "카드 위 파일 이름 (비우면 없음)" }, { key: "playerTime", label: "재생 시간 글자" }],
         [{ type: "bool", key: "playerBar", label: "아래 재생 버튼 줄" }, { type: "bool", key: "showPort", label: "오른쪽 + 연결점" }],
         [{ type: "number", key: "d0", label: "길이 (프레임, 클릭까지 약 62%)", min: 12, max: 160 }],
+        [{ type: "number", key: "introZoom", label: "시작 확대 배율 (1 = 확대 안 함)", min: 1, max: 4 }, { type: "number", key: "zoomOut", label: "축소되는 길이 (프레임)", min: 4, max: 120 }],
         [{ type: "color", key: "cardColors.select", label: "선택 테두리" }, { type: "color", key: "cardColors.empty", label: "빈 카드" }]] },
     { title: "① 툴바 등장", durKey: "1", hint: "버튼은 줄마다 하나. 앞에 ~ 를 붙이면 흐린(비활성) 버튼, 뒤에 ✦ 는 파란 별, ⌄ 는 화살표. '|' 는 구분선, '(아이콘)' 은 글자 없는 아이콘 버튼. 아이콘은 위에서부터 순서대로 붙어요.",
       rows: [[{ type: "textarea", key: "items", label: "버튼 목록" }], [{ type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 90 }]] },
@@ -332,7 +333,11 @@ E.start({
     if (width * k <= W - 80) ox = (W - width * k) / 2;
     else { const want = W / 2 - lerp(width / 2, curX, m0) * k; ox = clamp(want, W - 40 - width * k, 40); }
     const ca = easeOut(prog(f, 0, 14)), p = back(prog(f, clk0 + 2, clk0 + 14)), pa = clamp(prog(f, clk0 + 2, clk0 + 8));
-    ctx.save(); ctx.translate(ox, H / 2 - GH * k / 2); ctx.scale(k, k);
+    // 시작 확대: 카드 클릭 → 툴바로 가는 동안 커서 근처를 크게, 툴바 훑기가 시작되면 원래 크기로
+    const Z = Math.max(1, +S.introZoom || 1), zf = Z > 1 ? 1 - easeInOut(prog(f, t.s2, t.s2 + Math.max(4, +S.zoomOut || 24))) : 0, zoom = 1 + (Z - 1) * zf, K = k * zoom;
+    const Fx = lerp(cx0 + cw / 2, curX, .4 + .35 * m0), Fy = lerp(cy0 + ch / 2, curY, .3 + .5 * m0), oy = H / 2 - GH * k / 2;
+    const sx = lerp(ox + Fx * k, W / 2, zf), sy = lerp(oy + Fy * k, H / 2, zf);
+    ctx.save(); ctx.translate(sx, sy); ctx.scale(K, K); ctx.translate(-Fx, -Fy);
     const hov0 = clamp(1 - Math.hypot(curX - cpx, curY - cpy) / 300) * (1 - m0);
     card(cx0, cy0, cw, ch, im, ca, hov0, sel, f);
     U.ripple(cpx, cpy, prog(f, clk0, clk0 + 16), "#ffffff", 90);
@@ -364,7 +369,7 @@ E.start({
     if (P && S.pick) U.ripple(tx, ty, prog(f, click2, click2 + 16), "#ffffff", 80);
     if (S.showCursor) {
       const inA = easeOut(prog(f, 2, 12)), end = S.pick ? click2 : click, out = easeIn(prog(f, end + 10, Math.min(t.total - 2, end + 26)));
-      U.arrow(curX + 6, curY + 8 + out * 160, 1.5 / Math.max(.6, k), inA * (1 - out), Math.max(press, press2, press0), U.green(S));
+      U.arrow(curX + 6, curY + 8 + out * 160, 1.5 / Math.max(.6, k) / zoom, inA * (1 - out), Math.max(press, press2, press0), U.green(S));
     }
     ctx.restore();
     if (S.showChat) chat(f, t.chat);
