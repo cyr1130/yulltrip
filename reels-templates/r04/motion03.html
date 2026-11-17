@@ -10,7 +10,7 @@ const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
 const S = {
   keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00", scale: 1,
   tabs: "AI 에이전트\nAI 이미지\nAI 동영상\nAI 오디오\nAI 음악\nAI 아바타", tabFrom: 2, tabTo: 3, showCursor: true,
-  text: "가나다라 마바사아", refLabel: "참조",
+  text: "가나다라 마바사아", refLabel: "참조", img: { ref: [] }, refBadge: true,
   model: "Dreamina Seedance 2.0 Mini", ref: "옴니 레퍼런스", ratio: "9:16", quality: "720P", dur: "5s", credit: "25", creditOld: "60", pressSend: true,
   colors: { outer: "#161616", panel: "#232323", tab: "#bdbdbd", tabOn: "#ffffff", text: "#f2f2f2", muted: "#e6e6e6", sparkle: "#2f9bff", caret: "#2f9bff", refCard: "#3a3a3a", send: "#ffffff", sendIcon: "#111111" },
   d1: 16, d2: 26, d3: 40, d4: 30,
@@ -89,9 +89,27 @@ function scene(f, t) {
     if (on > 0) { ctx.save(); ctx.globalAlpha *= on; tabIcon(i, x0 + iw / 2, cy, 34 * on, c.tabOn); ctx.restore(); }
     ctx.fillStyle = on > .5 ? c.tabOn : c.tab; ctx.textBaseline = "middle"; ctx.fillText(name, x0 + iw + 12 * on, cy + 1);
   });
-  // 참조 카드
-  ctx.save(); ctx.translate(126, PY + 120); ctx.rotate(-.13); E.rr(-62, -72, 124, 144, 12); ctx.fillStyle = c.refCard; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
-  I.plus(0, -18, 38, "#cfcfcf", 2.2); ctx.fillStyle = "#bdbdbd"; ctx.font = `500 26px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.refLabel, 0, 32); ctx.restore(); ctx.textAlign = "left";
+  // 참조 카드: 이미지가 있으면 흰 테두리 사진 카드(겹쳐 쌓임) + 둥근 + 버튼, 없으면 빈 '참조' 카드
+  const refs = ((S.img && S.img.ref) || []).map(o => o && o.img).filter(Boolean).slice(0, 3);
+  if (refs.length) {
+    const CW = 116, CH = 146, cx0 = 128, cy0 = PY + 118, B = 5;
+    const back = refs.length > 1 ? refs.slice(1).reverse() : [null];
+    const rots = [.12, .2];
+    back.forEach((im, j) => {
+      ctx.save(); ctx.translate(cx0 + 6 + j * 4, cy0 - 2); ctx.rotate(rots[back.length - 1 - j]);
+      E.shadowed(() => { E.rr(-CW / 2, -CH / 2, CW, CH, 10); ctx.fillStyle = "#f4f4f4"; ctx.fill(); }, 16, 4, "rgba(0,0,0,.35)");
+      if (im) U.photo(im, -CW / 2 + B, -CH / 2 + B, CW - B * 2, CH - B * 2, 7);
+      ctx.restore();
+    });
+    ctx.save(); ctx.translate(cx0, cy0); ctx.rotate(-.07);
+    E.shadowed(() => { E.rr(-CW / 2, -CH / 2, CW, CH, 10); ctx.fillStyle = "#ffffff"; ctx.fill(); }, 18, 6, "rgba(0,0,0,.4)");
+    U.photo(refs[0], -CW / 2 + B, -CH / 2 + B, CW - B * 2, CH - B * 2, 7);
+    ctx.restore();
+    if (S.refBadge) { const bx = cx0 + 36, by = cy0 + 58; ctx.beginPath(); ctx.arc(bx, by, 27, 0, 7); ctx.fillStyle = "#3b3b3b"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 2; ctx.stroke(); I.plus(bx, by, 34, "#f2f2f2", 2.4); }
+  } else {
+    ctx.save(); ctx.translate(126, PY + 120); ctx.rotate(-.13); E.rr(-62, -72, 124, 144, 12); ctx.fillStyle = c.refCard; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+    I.plus(0, -18, 38, "#cfcfcf", 2.2); ctx.fillStyle = "#bdbdbd"; ctx.font = `500 26px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.refLabel, 0, 32); ctx.restore(); ctx.textAlign = "left";
+  }
   // 입력 (한글 조합 타이핑)
   const tp = prog(f, t.s3, t.s4 - 6), st = typedAt(tp), TX = 232, TYc = PY + 62, FS = 38;
   ctx.font = `500 ${FS}px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = c.text; ctx.fillText(st.s + st.comp, TX, TYc);
@@ -121,6 +139,8 @@ E.start({
     { title: "② 탭 전환", durKey: "2", hint: "탭 이름은 줄마다 하나 (최대 8개). 번호는 위에서부터 1, 2, 3…",
       rows: [[{ type: "textarea", key: "tabs", label: "탭 목록" }], [{ type: "number", key: "tabFrom", label: "처음 탭 번호", min: 1, max: 8 }, { type: "number", key: "tabTo", label: "눌러서 바뀌는 탭 번호", min: 1, max: 8 }],
         [{ type: "bool", key: "showCursor", label: "마우스 커서" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 10, max: 90 }]] },
+    { title: "참조 이미지", hint: "넣으면 왼쪽 '참조' 칸이 흰 테두리 사진 카드로 바뀌어요. 2~3장 넣으면 뒤로 겹쳐 쌓여요. 비우면 빈 참조 카드.",
+      rows: [[{ type: "images", key: "img.ref", label: "참조 이미지 (최대 3장)", max: 3 }], [{ type: "bool", key: "refBadge", label: "+ 버튼 표시" }]] },
     { title: "③ 입력", durKey: "3", hint: "한글은 자음 → 모음 → 받침 순서로 조합되며 써져요.",
       rows: [[{ key: "text", label: "입력 문구" }, { key: "refLabel", label: "참조 카드 글자" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 300 }, { type: "color", key: "colors.caret", label: "커서 색" }]] },
     { title: "④ 옵션 + 전송", durKey: "4",
@@ -129,6 +149,7 @@ E.start({
         [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.outer", label: "바깥 (탭 줄)" }, { type: "color", key: "colors.panel", label: "입력창·활성 탭" }],
         [{ type: "color", key: "colors.text", label: "글자" }, { type: "color", key: "colors.sparkle", label: "파란 별·점" }]] },
   ],
+  images: { "img.ref": [] },
   durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => +S.d4 },
   length: () => T().total,
   render(f) {
