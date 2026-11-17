@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 11</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04, I = U04.icons; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut } = E;
+
+const S = {
+  keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00", scale: 1, camera: true, zoomType: 1.6, zoomAd: 1.3, showCursor: true,
+  logo: "Google", query: "드리미나",
+  tabs: "AI 모드\n전체\n이미지\n동영상\n쇼핑\n뉴스\n짧은 동영상\n더보기 ▾\n도구 ▾", tabOn: 2,
+  adLabel: "광고: 검색 결과",
+  domain: "dreamina.capcut.com", url: "https://dreamina.capcut.com",
+  title: "Dreamina 요금 98% 할인 - 오늘 시작, 98% 할인",
+  desc: "드리미나로 고품질 이미지와 동영상을 몇 초 만에 생성하세요. 창작 과정을 더 효율적으로!",
+  links: "Dreamina 요금제 월 ₩408 | 드리미나 요금제를 확인하고 98% 할인받으세요. 지금 AI 이미지와 동영상 제작을 시작하세요!\n월 ₩408부터 지금 시작 | 드리미나 멤버십 월 ₩408! 기간 한정 98% 할인 혜택을 놓치지 마세요.\n드리미나 요금제 98% 할인 | 멤버십 98% 할인 혜택 월 ₩408부터 시작\n원클릭 동영상 제작 | 아이디어를 쉽게 영상으로 제작 클릭 한 번으로 영상 완성\n올인원 AI 스튜디오 | 광고와 제품 콘텐츠를 빠르게 제작 상업적 활용이 가능한 고품질 결과물",
+  highlight: false, img: { fav: [] },
+  colors: { page: "#ffffff", text: "#202124", muted: "#4d5156", link: "#1a0dab", line: "#e3e3e3", box: "#dfe1e5", hl: "#ff1a1a", caret: "#1a73e8" },
+  tabSwitch: true, brand: "DreaminaAI",
+  menu: "만들기\nAI 이미지\nAI 동영상\nAI 오디오\nSeedream 5.5 | new\n동영상 다시 만들기 | new\n캔버스\n모든 도구\n애셋 및 요소", menuFrom: 1, menuTo: 3,
+  side: { bg: "#111111", text: "#ffffff", on: "#262626", accent: "#7fd3ff", badge: "#16324a", badgeText: "#4fb3ff" },
+  d1: 14, d2: 20, d3: 34, d4: 30, d5: 32, d6: 10, d7: 22, d8: 32, d9: 24,
+};
+const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3, d = +S.d4, e = +S.d5, g = +S.d6;
+  const s2 = a, s3 = s2 + b, s4 = s3 + c, s5 = s4 + d, s6 = s5 + e, s7 = s6 + g, s8 = s7 + +S.d7, s9 = s8 + +S.d8;
+  return { s2, s3, s4, s5, s6, s7, s8, s9, total: S.tabSwitch ? s9 + +S.d9 : s7, boxClick: s3 - 5, adClick: s6 - 10, menuClick: s9 - 10 }; };
+const PW = 1322, SB = { x: 292, y: 28, w: 1004, h: 86 }, TX = 326, TY = 71, TITLE_Y = 508;
+const links = () => String(S.links).split("\n").filter(s => s.trim()).slice(0, 8).map(l => { const [t, d] = l.split("|"); return { t: (t || "").trim(), d: (d || "").trim() }; });
+const pageH = () => 630 + 128 * links().length;
+
+// 한글 조합 단계 (ㄷ → 드 …)
+const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+function stages(text) {
+  const out = []; let done = "";
+  for (const c of Array.from(text)) {
+    const code = c.charCodeAt(0) - 0xAC00;
+    if (code >= 0 && code < 11172) { const jong = code % 28, jung = ((code - jong) / 28) % 21, cho = Math.floor(code / 28 / 21);
+      out.push({ s: done, comp: CHO[cho] }); out.push({ s: done, comp: String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28) }); if (jong) out.push({ s: done, comp: c }); }
+    else out.push({ s: done, comp: "", ch: c });
+    done += c;
+  }
+  out.push({ s: done, comp: "" }); return out;
+}
+function typedAt(p) {
+  const st = stages(S.query), n = st.length - 1; if (p <= 0) return { s: "", comp: "" };
+  const w = st.map((o, i) => (o.ch === " " ? 2.2 : 1) * (0.7 + 0.6 * (((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1)));
+  const tot = w.slice(0, n).reduce((a, b) => a + b, 0); let acc = 0; const target = clamp(p) * tot;
+  for (let i = 0; i < n; i++) { acc += w[i]; if (acc > target) return st[i]; }
+  return st[n];
+}
+
+// 아이콘 (검색창 오른쪽)
+function stroke(c, lw, fn) { ctx.save(); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.lineJoin = "round"; fn(); ctx.restore(); }
+function icoX(x, y, a) { if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; stroke("#202124", 4, () => { ctx.beginPath(); ctx.moveTo(x - 11, y - 11); ctx.lineTo(x + 11, y + 11); ctx.moveTo(x + 11, y - 11); ctx.lineTo(x - 11, y + 11); ctx.stroke(); }); ctx.restore(); }
+function icoKeyboard(x, y) { ctx.fillStyle = "#202124"; E.rr(x - 18, y - 12, 36, 24, 4); ctx.fill(); ctx.fillStyle = "#fff";
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 5; k++) ctx.fillRect(x - 13 + k * 5.6, y - 7 + r * 5.5, 3, 3); ctx.fillRect(x - 8, y + 5, 16, 2.6); }
+function icoMic(x, y) { stroke("#202124", 3.6, () => { E.rr(x - 6, y - 17, 12, 22, 6); ctx.fill(); ctx.beginPath(); ctx.arc(x, y - 2, 11, .15, Math.PI - .15); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y + 9); ctx.lineTo(x, y + 16); ctx.stroke(); }); }
+function icoLens(x, y) { stroke("#202124", 3.6, () => { const s = 16, c = 7; ctx.beginPath();
+  [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => { ctx.moveTo(x + sx * s, y + sy * (s - c)); ctx.quadraticCurveTo(x + sx * s, y + sy * s, x + sx * (s - c), y + sy * s); }); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y + 1, 6, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(x + 8, y - 8, 2.2, 0, 7); ctx.fill(); }); }
+function favicon(x, y, r) {
+  const im = U.img(S, "img.fav");
+  if (im) { ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.clip(); const s = Math.max(2 * r / im.naturalWidth, 2 * r / im.naturalHeight); ctx.drawImage(im, x - im.naturalWidth * s / 2, y - im.naturalHeight * s / 2, im.naturalWidth * s, im.naturalHeight * s); ctx.restore(); }
+  else { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = "#0b0b0b"; ctx.fill(); ctx.strokeStyle = "#d9d9d9"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 13, y - 9); ctx.lineTo(x + 14, y - 12); ctx.lineTo(x - 2, y + 14); ctx.lineTo(x - 3, y + 1); ctx.closePath();
+    const g = ctx.createLinearGradient(x - 13, y - 12, x + 14, y + 14); g.addColorStop(0, "#9ff3ff"); g.addColorStop(1, "#2a6bff"); ctx.fillStyle = g; ctx.fill(); }
+}
+function chevronR(x, y) { stroke("#3c4043", 3.4, () => { ctx.beginPath(); ctx.moveTo(x - 5, y - 10); ctx.lineTo(x + 5, y); ctx.lineTo(x - 5, y + 10); ctx.stroke(); }); }
+function line(y, x0 = 60, x1 = 1026) { ctx.fillStyle = S.colors.line; ctx.fillRect(x0, y, x1 - x0, 2); }
+const rise = (f, at) => { const p = easeOut(prog(f, at, at + 10)); return { a: p, dy: lerp(26, 0, p) }; };
+function fade(a, dy, fn) { if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; ctx.translate(0, dy); fn(); ctx.restore(); }
+
+function page(f, t, cur) {
+  const c = S.colors, PH = pageH();
+  E.rr(0, 0, PW, PH, 36); ctx.fillStyle = c.page; ctx.fill();
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  // 로고
+  const LC = ["#4285F4", "#EA4335", "#FBBC05", "#4285F4", "#34A853", "#EA4335"];
+  ctx.font = `600 60px "Product Sans", "Google Sans", ${E.SANS}`; let lx = 58;
+  Array.from(String(S.logo)).forEach((ch, i) => { ctx.fillStyle = LC[i % LC.length]; ctx.fillText(ch, lx, 70); lx += ctx.measureText(ch).width - 1; });
+  // 검색창 (클릭되면 그림자 진해짐)
+  const focus = easeOut(prog(f, t.boxClick, t.boxClick + 6));
+  ctx.save(); ctx.shadowColor = `rgba(32,33,36,${.12 + .16 * focus})`; ctx.shadowBlur = 10 + 10 * focus; ctx.shadowOffsetY = 2 + 2 * focus;
+  E.rr(SB.x, SB.y, SB.w, SB.h, SB.h / 2); ctx.fillStyle = "#fff"; ctx.fill(); ctx.restore();
+  E.rr(SB.x, SB.y, SB.w, SB.h, SB.h / 2); ctx.strokeStyle = focus > .5 ? "#ececec" : c.box; ctx.lineWidth = 2; ctx.stroke();
+  // 입력 글자
+  const tp = prog(f, t.s3, t.s4 - 6), st = typedAt(tp), FS = 31;
+  ctx.font = `500 ${FS}px ${E.SANS}`; ctx.fillStyle = c.text; ctx.fillText(st.s + st.comp, TX, TY);
+  const w1 = ctx.measureText(st.s).width, w2 = ctx.measureText(st.s + st.comp).width;
+  if (st.comp) ctx.fillRect(TX + w1, TY + FS * .64, w2 - w1, 2.2);
+  const blink = Math.floor((f - t.boxClick) / 9) % 2 === 0, typing = tp > 0 && tp < 1;
+  if (f >= t.boxClick + 2 && f < t.s4 + 2 && (typing || blink)) { ctx.fillStyle = c.caret; ctx.fillRect(TX + w2 + 3, TY - FS * .62, 2.6, FS * 1.24); }
+  // 오른쪽 아이콘
+  icoX(1032, 70, clamp(tp * 4)); ctx.fillStyle = "#dadce0"; ctx.fillRect(1071, 46, 2, 48);
+  icoKeyboard(1112, 70); icoMic(1180, 72); icoLens(1248, 70);
+  // 엔터 → 결과
+  const R = t.s4 + 3;
+  { const r = rise(f, R); fade(r.a, r.dy * .4, () => {
+      const list = String(S.tabs).split("\n").filter(Boolean); ctx.font = `500 25px ${E.SANS}`; let x = 60; const on = clamp(+S.tabOn, 1, list.length) - 1;
+      list.forEach((name, i) => { const nm = name.replace(/\s*▾$/, ""), dd = nm !== name; ctx.font = `${i === on ? 700 : 500} 25px ${E.SANS}`; ctx.fillStyle = i === on ? c.text : "#5f6368"; ctx.fillText(nm, x, 180);
+        const w = ctx.measureText(nm).width; if (i === on) { ctx.fillStyle = c.text; E.rr(x, 209, w, 5, 2.5); ctx.fill(); }
+        if (dd) { ctx.fillStyle = "#5f6368"; ctx.beginPath(); ctx.moveTo(x + w + 12, 177); ctx.lineTo(x + w + 24, 177); ctx.lineTo(x + w + 18, 184); ctx.fill(); }
+        x += w + (dd ? 24 : 0) + 42; });
+      line(216, 0, PW); }); }
+  { const r = rise(f, R + 4); fade(r.a, r.dy, () => { ctx.font = `500 31px ${E.SANS}`; ctx.fillStyle = c.text; ctx.fillText(S.adLabel, 60, 316); line(366, 60, 1168); }); }
+  // 광고 본문
+  const hover = cur.hover, clicked = f >= t.adClick;
+  { const r = rise(f, R + 8); fade(r.a, r.dy, () => {
+      favicon(83, 457, 24);
+      ctx.font = `500 23px ${E.SANS}`; ctx.fillStyle = c.text; ctx.fillText(S.domain, 127, 441);
+      ctx.font = `400 19px ${E.SANS}`; ctx.fillStyle = c.muted; ctx.fillText(S.url, 127, 475); const uw = ctx.measureText(S.url).width;
+      ctx.fillStyle = "#3c4043"; [-8, 0, 8].forEach(d => { ctx.beginPath(); ctx.arc(127 + uw + 28, 466 + d, 2.4, 0, 7); ctx.fill(); });
+      ctx.font = `400 37px ${E.SANS}`; ctx.fillStyle = clicked ? "#681da8" : c.link; ctx.fillText(S.title, 60, TITLE_Y); const tw = ctx.measureText(S.title).width;
+      if (hover > 0) { ctx.globalAlpha *= hover; ctx.fillRect(60, TITLE_Y + 22, tw, 2.4); ctx.globalAlpha /= hover; }
+      ctx.font = `400 22px ${E.SANS}`; ctx.fillStyle = c.muted; ctx.fillText(S.desc, 60, 556);
+      if (S.highlight) { const hp = easeInOut(prog(f, t.adClick + 2, t.adClick + 14)); if (hp > 0) { ctx.save(); ctx.strokeStyle = c.hl; ctx.lineWidth = 4; const x = 46, y = 413, w = Math.max(tw, 410) + 32, h = 132, per = 2 * (w + h);
+        ctx.setLineDash([per * hp, per]); ctx.strokeRect(x, y, w, h); ctx.restore(); } }
+    }); }
+  links().forEach((l, i) => { const r = rise(f, R + 11 + i * 3), y = 609 + 128 * i; fade(r.a, r.dy, () => {
+    line(y); ctx.font = `400 33px ${E.SANS}`; ctx.fillStyle = c.text; ctx.fillText(l.t, 60, y + 44);
+    ctx.font = `400 22px ${E.SANS}`; ctx.fillStyle = c.muted; ctx.fillText(l.d, 60, y + 85); chevronR(995, y + 60);
+    if (i === links().length - 1) line(y + 128); }); });
+  return { box: [TX + 220, TY + 4], title: [60 + Math.min(260, measureTitle() * .45), TITLE_Y + 4] };
+}
+function measureTitle() { ctx.font = `400 37px ${E.SANS}`; return ctx.measureText(S.title).width; }
+
+// 카메라: 입력할 땐 검색창 쪽 확대 → 결과 나오면 전체 → 광고 제목 쪽 확대
+function camera(f, t) {
+  const PH = pageH(), C0 = [1, PW / 2, PH / 2];
+  if (!S.camera) return C0;
+  const Zt = +S.zoomType || 1, Za = +S.zoomAd || 1;
+  const keys = [[0, ...C0], [t.s2 - 2, ...C0], [t.boxClick + 2, Zt, 430, 120], [t.s4 + 2, Zt, 430, 120], [t.s4 + 18, ...C0], [t.s5 + 2, ...C0], [t.s5 + 20, Za, 520, 560], [1e9, Za, 520, 560]];
+  for (let i = 0; i < keys.length - 1; i++) { const a = keys[i], b = keys[i + 1]; if (f < b[0]) { const p = easeInOut(prog(f, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p), lerp(a[3], b[3], p)]; } }
+  return keys[keys.length - 1].slice(1);
+}
+
+// ── 드리미나 사이드바 (탭 넘어간 뒤) ──
+const SW = 488, ROW = 71.5, ROW0 = 167;
+const menu = () => String(S.menu).split("\n").filter(x => x.trim()).slice(0, 12).map(l => { const [t, m] = l.split("|"); return { t: t.trim(), isNew: /new/i.test(m || "") }; });
+const sideH = () => ROW0 + ROW * menu().length + 30;
+function planeIcon(x, y, s) { ctx.save(); ctx.translate(x, y); ctx.scale(s / 60, s / 60);
+  ctx.beginPath(); ctx.moveTo(-28, -16); ctx.lineTo(30, -26); ctx.lineTo(-4, 30); ctx.lineTo(-6, 4); ctx.closePath();
+  const g = ctx.createLinearGradient(-28, -26, 30, 30); g.addColorStop(0, "#b8f6ff"); g.addColorStop(.5, "#39c0ff"); g.addColorStop(1, "#1d4dff"); ctx.fillStyle = g; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(30, -26); ctx.lineTo(-4, 30); ctx.closePath(); ctx.fillStyle = "rgba(10,40,160,.45)"; ctx.fill(); ctx.restore(); }
+function menuIcon(name, x, y, c) {
+  const k = name;
+  if (/다시|remake/i.test(k)) { stroke(c, 3, () => { E.rr(x - 15, y - 13, 26, 26, 6); ctx.stroke(); E.rr(x - 9, y - 7, 26, 26, 6); ctx.fillStyle = S.side.bg; ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 1, y); ctx.lineTo(x + 10, y + 6); ctx.lineTo(x + 1, y + 12); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); }); return; }
+  if (/만들기|create/i.test(k)) { ctx.save(); ctx.translate(x, y); ctx.fillStyle = c; ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.quadraticCurveTo(0, 0, Math.cos(a + Math.PI / 2) * 19, Math.sin(a + Math.PI / 2) * 19); } ctx.fill(); ctx.restore(); return; }
+  if (/이미지|image|seedream/i.test(k)) return I.image(x, y, 36, c, 2.6);
+  if (/동영상|video/i.test(k)) return I.playCircle(x, y, 36, c, 2.6);
+  if (/오디오|audio|음악/i.test(k)) return stroke(c, 3.4, () => { ctx.beginPath(); [[-13, 6], [-6, 13], [1, 8], [8, 4]].forEach(([bx, h]) => { ctx.moveTo(x + bx, y - h); ctx.lineTo(x + bx, y + h); }); ctx.stroke(); });
+  if (/캔버스|canvas/i.test(k)) return stroke(c, 3.2, () => { ctx.beginPath(); ctx.moveTo(x - 8, y - 16); ctx.lineTo(x - 8, y + 16); ctx.moveTo(x + 8, y - 16); ctx.lineTo(x + 8, y + 8); ctx.moveTo(x - 16, y - 8); ctx.lineTo(x + 16, y - 8); ctx.moveTo(x - 16, y + 8); ctx.lineTo(x + 6, y + 8); ctx.stroke(); });
+  if (/도구|tool/i.test(k)) return stroke(c, 3, () => { [[-8, -8], [8, -8], [-8, 8]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(x + dx, y + dy, 5.5, 0, 7); ctx.stroke(); }); });
+  if (/애셋|asset|폴더/i.test(k)) return stroke(c, 3, () => { ctx.beginPath(); ctx.moveTo(x - 16, y + 13); ctx.lineTo(x - 16, y - 12); ctx.lineTo(x - 5, y - 12); ctx.lineTo(x - 1, y - 7); ctx.lineTo(x + 16, y - 7); ctx.lineTo(x + 16, y + 13); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x - 16, y - 2); ctx.lineTo(x + 16, y - 2); ctx.stroke(); });
+  return I.sparkle(x, y, 30, c);
+}
+function sidebar(f, t) {
+  const c = S.side, list = menu(), SH = sideH();
+  E.rr(0, 0, SW, SH, 30); ctx.fillStyle = c.bg; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  planeIcon(56, 50, 52); ctx.font = `italic 800 38px Georgia, "Times New Roman", serif`; ctx.fillStyle = c.text; ctx.fillText(S.brand, 102, 52);
+  ctx.strokeStyle = "#8a8a8a"; ctx.lineWidth = 2.4; E.rr(407, 42, 26, 24, 6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(416, 49); ctx.lineTo(416, 59); ctx.stroke();
+  // 선택 칸 이동
+  const from = clamp(+S.menuFrom, 1, list.length) - 1, to = clamp(+S.menuTo, 1, list.length) - 1, mp = easeInOut(prog(f, t.menuClick, t.menuClick + 8));
+  const hy = lerp(from, to, mp), hoverA = easeOut(prog(f, t.menuClick - 10, t.menuClick - 3)) * (1 - mp);
+  if (hoverA > 0 && to !== from) { ctx.save(); ctx.globalAlpha *= hoverA * .55; E.rr(16, ROW0 + ROW * to - 32, 432, 64, 14); ctx.fillStyle = c.on; ctx.fill(); ctx.restore(); }
+  E.rr(16, ROW0 + ROW * hy - 32, 432, 64, 14); ctx.fillStyle = c.on; ctx.fill();
+  list.forEach((it, i) => { const r = rise(f, t.s7 + 6 + i * 2), y = ROW0 + ROW * i; fade(r.a, r.dy * .5, () => {
+    const col = it.isNew ? c.accent : c.text; menuIcon(it.t, 56, y, col);
+    if (it.isNew) { ctx.font = `italic 700 30px Georgia, "Times New Roman", serif`; const g = ctx.createLinearGradient(96, 0, 360, 0); g.addColorStop(0, "#9fe6ff"); g.addColorStop(1, "#5aa8ff"); ctx.fillStyle = g; }
+    else { ctx.font = `600 28px ${E.SANS}`; ctx.fillStyle = col; }
+    ctx.fillText(it.t, 96, y + 1); const w = ctx.measureText(it.t).width;
+    if (it.isNew) { ctx.font = `600 18px ${E.SANS}`; const bw = ctx.measureText("New").width + 20; E.rr(96 + w + 16, y - 16, bw, 32, 6); ctx.fillStyle = c.badge; ctx.fill(); ctx.fillStyle = c.badgeText; ctx.fillText("New", 96 + w + 26, y + 1); }
+  }); });
+  return { x: 150, y: ROW0 + ROW * to + 4 };
+}
+
+E.start({
+  title: "모션 11 · 검색창 입력 → 검색 결과 클릭", group: "릴스04 템플릿", file: "motion11", state: S, alpha: true,
+  intro: "검색 페이지가 뜨고 커서가 검색창을 눌러 '드리미나'를 한글 조합으로 입력해요. 엔터를 치면 광고 결과가 차례로 올라오고, 커서가 광고 제목을 눌러요. 그다음 드리미나 탭으로 넘어가 사이드 메뉴가 뜨고 메뉴를 눌러요.",
+  sections: [
+    { title: "공통", rows: [...U.bgRows, [{ type: "number", key: "scale", label: "페이지 크기 배율", min: .3, max: 1.05 }, { type: "bool", key: "showCursor", label: "마우스 커서" }],
+      [{ type: "bool", key: "camera", label: "확대 카메라" }, { type: "number", key: "zoomType", label: "입력할 때 확대", min: 1, max: 2.4 }, { type: "number", key: "zoomAd", label: "클릭할 때 확대", min: 1, max: 2 }]] },
+    { title: "① 등장", durKey: "1", rows: [[{ key: "logo", label: "로고 글자" }, { type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 60 }]] },
+    { title: "② 검색창 클릭", durKey: "2", rows: [[{ type: "number", key: "d2", label: "길이 (프레임)", min: 8, max: 60 }]] },
+    { title: "③ 입력", durKey: "3", hint: "한글은 자음 → 모음 → 받침 순서로 조합되며 써져요.",
+      rows: [[{ key: "query", label: "검색어" }, { type: "color", key: "colors.caret", label: "커서 색" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 8, max: 200 }]] },
+    { title: "④ 검색 결과", durKey: "4", hint: "아래 링크는 줄마다 '제목 | 설명' (최대 8줄). 탭 이름 뒤에 ▾ 를 붙이면 화살표가 붙어요.",
+      rows: [[{ type: "textarea", key: "tabs", label: "탭 목록" }], [{ type: "number", key: "tabOn", label: "선택된 탭 번호", min: 1, max: 12 }, { key: "adLabel", label: "광고 머리글" }],
+        [{ key: "domain", label: "사이트 이름" }, { key: "url", label: "주소" }], [{ key: "title", label: "광고 제목 (클릭됨)" }], [{ key: "desc", label: "광고 설명" }],
+        [{ type: "images", key: "img.fav", label: "사이트 아이콘 (비우면 기본)", max: 1 }],
+        [{ type: "textarea", key: "links", label: "아래 링크 목록" }], [{ type: "number", key: "d4", label: "길이 (프레임)", min: 10, max: 120 }]] },
+    { title: "⑤ 제목 클릭", durKey: "5", rows: [[{ type: "bool", key: "highlight", label: "클릭 후 빨간 강조 박스" }, { type: "color", key: "colors.hl", label: "강조 색" }],
+        [{ type: "number", key: "d5", label: "길이 (프레임)", min: 12, max: 90 }, { type: "number", key: "d6", label: "끝 유지 (프레임)", min: 0, max: 120 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.page", label: "페이지" }, { type: "color", key: "colors.link", label: "링크 제목" }],
+        [{ type: "color", key: "colors.text", label: "글자" }, { type: "color", key: "colors.muted", label: "설명 글자" }]] },
+    { title: "⑥ 드리미나 탭 → 메뉴 클릭", durKey: "6", hint: "메뉴는 줄마다 하나. 뒤에 '| new' 를 붙이면 파란 글씨 + New 배지. 번호는 위에서부터 1, 2, 3…",
+      rows: [[{ type: "bool", key: "tabSwitch", label: "드리미나 탭으로 넘어가기" }, { key: "brand", label: "로고 글자" }],
+        [{ type: "textarea", key: "menu", label: "메뉴 목록" }], [{ type: "number", key: "menuFrom", label: "처음 선택된 메뉴", min: 1, max: 12 }, { type: "number", key: "menuTo", label: "눌러서 바뀌는 메뉴", min: 1, max: 12 }],
+        [{ type: "number", key: "d7", label: "넘어가기 (프레임)", min: 8, max: 60 }, { type: "number", key: "d8", label: "클릭까지 (프레임)", min: 12, max: 90 }, { type: "number", key: "d9", label: "끝 유지 (프레임)", min: 0, max: 120 }],
+        [{ type: "color", key: "side.bg", label: "사이드바 배경" }, { type: "color", key: "side.on", label: "선택 칸" }]] },
+  ],
+  images: { "img.fav": [] },
+  durations: { 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => +S.d4, 5: S => +S.d5 + +S.d6, 6: S => S.tabSwitch ? +S.d7 + +S.d8 + +S.d9 : 0 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(); U.bg(S);
+    const PH = pageH(), base = (+S.scale || 1) * Math.min(W * .94 / PW, H * .9 / PH);
+    const p = easeOut(prog(f, 0, 14)), [z, fx, fy] = camera(f, t), K = base * z * lerp(.96, 1, p);
+    // 커서 경로 (페이지 좌표)
+    const box = [TX + 230, TY + 6], ttl = [60 + Math.min(300, measureTitle() * .45), TITLE_Y + 6], aside = [880, 190];
+    const a1 = easeInOut(prog(f, t.s2 - 2, t.boxClick)), a2 = easeInOut(prog(f, t.boxClick + 6, t.boxClick + 18)), a3 = easeInOut(prog(f, t.s5 + 2, t.adClick - 3));
+    let cx = lerp(PW * .82, box[0], a1), cy = lerp(PH + 260, box[1], a1);
+    cx = lerp(cx, aside[0], a2); cy = lerp(cy, aside[1], a2); cx = lerp(cx, ttl[0], a3); cy = lerp(cy, ttl[1], a3);
+    const hover = clamp((a3 - .9) * 10);
+    const q = S.tabSwitch ? easeInOut(prog(f, t.s7, t.s7 + 16)) : 0;
+    if (q < 1) {
+    ctx.save(); ctx.globalAlpha = clamp(p * 1.4) * (1 - q);
+    ctx.translate(W / 2 - q * W * .5, H / 2 + lerp(80, 0, p)); ctx.scale(K, K); ctx.translate(-fx, -fy);
+    U.shadow(S, () => { E.rr(0, 0, PW, PH, 36); ctx.fillStyle = S.colors.page; ctx.fill(); }, 70, 24, "rgba(0,0,0,.5)");
+    page(f, t, { hover });
+    if (S.showCursor) {
+      const press = Math.max(Math.sin(Math.PI * prog(f, t.boxClick - 2, t.boxClick + 4)), Math.sin(Math.PI * prog(f, t.adClick - 2, t.adClick + 4)));
+      U.ripple(box[0], box[1], prog(f, t.boxClick, t.boxClick + 14), "#1a73e8", 50);
+      U.ripple(ttl[0], ttl[1], prog(f, t.adClick, t.adClick + 14), "#1a0dab", 60);
+      U.arrow(cx, cy, 1.5 / z, clamp(a1 * 3), press, U.green(S));
+    }
+    ctx.restore();
+    }
+    if (q > 0) {
+      const SH = sideH(), k2 = (+S.scale || 1) * Math.min(W * .62 / SW, H * .8 / SH);
+      ctx.save(); ctx.globalAlpha = q; ctx.translate(W / 2 + (1 - q) * W * .5, H / 2); ctx.scale(k2, k2); ctx.translate(-SW / 2, -SH / 2);
+      U.shadow(S, () => { E.rr(0, 0, SW, SH, 30); ctx.fillStyle = S.side.bg; ctx.fill(); }, 60, 20, "rgba(0,0,0,.6)");
+      const r = sidebar(f, t);
+      if (S.showCursor) {
+        const b = easeInOut(prog(f, t.s8 - 4, t.menuClick - 2)), mx = lerp(SW * .9, r.x, b), my = lerp(SH + 140, r.y, b);
+        const press = Math.sin(Math.PI * prog(f, t.menuClick - 2, t.menuClick + 4));
+        U.ripple(r.x, r.y, prog(f, t.menuClick, t.menuClick + 14), "#ffffff", 46);
+        U.arrow(mx, my, 1.1, clamp(b * 3), press, U.green(S));
+      }
+      ctx.restore();
+    }
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>
