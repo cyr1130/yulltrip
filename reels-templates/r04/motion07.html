@@ -17,12 +17,13 @@ const S = {
   // ⑤ 채팅창
   showChat: true, chatW: 920, dim: true, chatTitle: "새 채팅",
   ask1: "Video to prompt 을(를) 사용하여", ask2: "a3b32...ae740 을(를) 분석하세요",
-  status: "생각을 정리하는 중...",
-  steps: "", thinking: "생각 중...",
+  status: "생각을 정리하는 중...\n아이디어를 다듬는 중...\n디테일 마무리하는 중...\n모두 종합하는 중...", statusCycle: 40,
+  thinking: "생각 중...", typeSpeed: 3,
+  flow: "I'll start by loading the video reverse analysis skill, then run a detailed breakdown of the provided video clip to extract its storyboard, shot composition, and creative parameters.\n> 스킬 사용: 동영상을 프롬프트로\nNow I'll run the video reverse analysis tool on the provided video clip, sampling frames at 2fps to capture all shot changes and movement details.\n> 동영상 분석\n# Video Reverse Analysis Complete\nThis is a 27.56s darkly humorous fairy-tale parody short, reimagining Cinderella as a gangster heist character with absurd, contrasting comedy.\n[표]",
   placeholder: "아이디어나 스크립트로 시작하세요. @ 기호를 사용하여 요소를 멘션하거나 \"/\"를 입력하여 스킬을 사용하세요.",
   model: "Dola Seed 2.0 Lite", img: { thumb: [] },
   chatColors: { panel: "#1b1b1b", bubble: "#2a2a2a", input: "#222222", text: "#ececec", sub: "#bdbdbd", spin: "#2f9bff" },
-  d5: 140,
+  d5: 340,
 };
 const T = () => {
   const a = +S.d1, b = +S.d2, c = +S.d3, s4 = a + b + c, click2 = s4 + Math.round(+S.d4 * .62);
@@ -95,6 +96,24 @@ function spinner(x, y, r, col, f) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(f * .32); ctx.strokeStyle = col; ctx.lineCap = "round"; ctx.lineWidth = 1.8;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * .7); ctx.stroke(); ctx.globalAlpha *= .55; ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, Math.PI * 1.5); ctx.stroke(); ctx.restore();
 }
+// 채팅 흐름: 줄마다 블록. 그냥 글 = 타이핑 문단, "> " = 단계(아이콘), "# " = 굵은 제목, "[표]" = 표 자리
+function flowPlan(s) {
+  const out = [], cps = Math.max(.5, +S.typeSpeed || 3); let t = s + 40;
+  ctx.font = `400 10.5px ${E.SANS}`;
+  for (const raw of String(S.flow || "").split("\n")) {
+    const line = raw.trim(); if (!line) continue;
+    if (line.startsWith(">")) { out.push({ kind: "step", text: line.slice(1).trim(), t0: t }); t += 18; }
+    else if (line.startsWith("#")) { out.push({ kind: "h", text: line.replace(/^#+/, "").trim(), t0: t }); t += 12; }
+    else if (/^\[표\]$/.test(line)) { out.push({ kind: "table", t0: t }); t += 16; }
+    else {
+      const lines = []; let cur = "";
+      for (const w of line.split(/(\s+)/)) { if (cur && ctx.measureText(cur + w).width > PW - 44) { lines.push(cur); cur = w.trimStart(); } else cur += w; }
+      if (cur) lines.push(cur);
+      const d = Math.ceil(Array.from(line).length / cps); out.push({ kind: "p", text: line, lines, t0: t, t1: t + d }); t += d + 8;
+    }
+  }
+  return out;
+}
 function chat(f, s) {
   const e0 = prog(f, s, s + 12); if (e0 <= 0) return;
   const cc = S.chatColors, u = (+S.chatW || 920) / PW, ph = PHH * u;
@@ -110,6 +129,19 @@ function chat(f, s) {
   ctx.font = `600 11px ${E.SANS}`; ctx.fillStyle = cc.text; ctx.fillText(S.chatTitle, 14, 22); const tw = ctx.measureText(S.chatTitle).width;
   I.chevron(14 + tw + 9, 23, 9, cc.text, 1.1);
   V.chat(247, 22, 12, cc.sub, 1.1); I.agent(279, 22, 12, cc.sub, 1.1); I.full(312, 22, 11, cc.sub, 1.1);
+  // 본문 배치 (요청 → 진행 문구 → 흐름 블록), 넘치면 위로 스크롤
+  const by = PHH - 148, bh = 104, ry = by + bh - 20, VIEW_B = by - 14;
+  const blocks = flowPlan(s), FX = 22, LH = 16.5;
+  let y = 174, lastStep = -1;
+  blocks.forEach((b, i) => { b.y = y; const a = clamp(prog(f, b.t0, b.t0 + 8));
+    if (b.kind === "p") { const n = U.typedCount(b.text, prog(f, b.t0, b.t1)); let used = 0; b.shown = []; for (const ln of b.lines) { if (used >= n) break; const c = Array.from(ln); b.shown.push(c.slice(0, n - used).join("")); used += c.length; } b.h = f >= b.t0 ? Math.max(1, b.shown.length) * LH + 10 : 0; }
+    else if (b.kind === "step") { b.h = 30 * easeOut(a); if (f >= b.t0) lastStep = i; }
+    else if (b.kind === "h") b.h = 30 * easeOut(a);
+    else if (b.kind === "table") b.h = 104 * easeOut(a);
+    y += b.h || 0; });
+  const thinkOn = S.thinking && f >= s + 24 && (!blocks.length || f < blocks[0].t0);
+  const bottom = thinkOn ? 184 : y, scroll = Math.max(0, bottom - VIEW_B);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 40, PW, VIEW_B - 40 + 6); ctx.clip(); ctx.translate(0, -scroll);
   // 요청 말풍선
   const eb = easeOut(prog(f, s + 6, s + 16));
   if (eb > 0) {
@@ -122,32 +154,42 @@ function chat(f, s) {
     ctx.fillStyle = cc.text; ctx.fillText(S.ask2, bx + 33, 97);
     ctx.restore();
   }
-  // 진행 문구 + 로딩
+  // 진행 문구 + 로딩 (차례로 바뀜)
   const es = prog(f, s + 16, s + 22);
   if (es > 0) {
     ctx.save(); ctx.globalAlpha *= es;
-    const list = String(S.status).split("\n").map(v => v.trim()).filter(Boolean), cyc = 40;
+    const list = String(S.status).split("\n").map(v => v.trim()).filter(Boolean), cyc = Math.max(12, +S.statusCycle || 40);
     const k = Math.max(0, Math.floor((f - s - 16) / cyc)) % Math.max(1, list.length), fade = clamp(((f - s - 16) % cyc) / 5);
     spinner(28, 143, 5.5, cc.spin, f);
     ctx.font = `600 11px ${E.SANS}`; ctx.globalAlpha *= (list.length > 1 ? fade : 1); if (list[k]) shimmerText(list[k], 41, 143, cc.text, f);
     ctx.restore();
   }
-  // 단계
-  const steps = String(S.steps).split("\n").map(v => v.trim()).filter(Boolean); let y = 174;
-  steps.forEach((st, i) => {
-    const a = easeOut(prog(f, s + 34 + i * 24, s + 42 + i * 24)); if (a <= 0) return;
-    const last = i === steps.length - 1;
-    ctx.save(); ctx.globalAlpha *= a; ctx.font = `500 10.5px ${E.SANS}`;
-    if (i === 0) V.analyze(31, y, 10, cc.sub, 1.1); else U.ico(31, y, 10, cc.sub, 1.1, c => { c.beginPath(); c.roundRect(-10, -10, 18, 18, 4); c.stroke(); c.beginPath(); c.arc(1, 1, 4.5, 0, 7); c.moveTo(4.5, 4.5); c.lineTo(9, 9); c.stroke(); });
-    if (last) shimmerText(st, 41, y, cc.sub, f); else { ctx.fillStyle = cc.sub; ctx.fillText(st, 41, y); }
-    ctx.restore(); y += 28;
+  if (thinkOn) { const a = prog(f, s + 24, s + 34); ctx.save(); ctx.globalAlpha *= a * (.55 + .35 * Math.sin(f * .2)); ctx.font = `500 10.5px ${E.SANS}`; ctx.fillStyle = "#6a6a6a"; ctx.fillText(S.thinking, 27, 174); ctx.restore(); }
+  // 흐름 블록
+  let stepNo = 0;
+  blocks.forEach((b, i) => {
+    if (f < b.t0) return; const a = easeOut(prog(f, b.t0, b.t0 + 8));
+    ctx.save(); ctx.textBaseline = "middle";
+    if (b.kind === "p") { ctx.font = `400 10.5px ${E.SANS}`; ctx.fillStyle = cc.text; b.shown.forEach((ln, j) => ctx.fillText(ln, FX, b.y + 2 + j * LH)); }
+    else if (b.kind === "step") {
+      ctx.globalAlpha *= a; ctx.font = `500 10.5px ${E.SANS}`; const sy = b.y + 11;
+      if (stepNo++ % 2 === 0) V.analyze(FX + 5, sy, 10, cc.sub, 1.1); else U.ico(FX + 5, sy, 10, cc.sub, 1.1, c => { c.beginPath(); c.roundRect(-10, -10, 18, 18, 4); c.stroke(); c.beginPath(); c.arc(1, 1, 4.5, 0, 7); c.moveTo(4.5, 4.5); c.lineTo(9, 9); c.stroke(); });
+      const running = i === lastStep && (i === blocks.length - 1 || f < blocks[i + 1].t0 + 4);
+      if (running) shimmerText(b.text, FX + 16, sy, cc.sub, f); else { ctx.fillStyle = cc.sub; ctx.fillText(b.text, FX + 16, sy); }
+    }
+    else if (b.kind === "h") { ctx.globalAlpha *= a; ctx.font = `700 11.5px ${E.SANS}`; ctx.fillStyle = cc.text; ctx.fillText(b.text, FX, b.y + 13); }
+    else if (b.kind === "table") {
+      ctx.globalAlpha *= a; const tw = PW - FX * 2, rh = 22, rows = 4, ty = b.y + 6;
+      E.rr(FX, ty, tw, rh * rows, 6); ctx.fillStyle = "rgba(255,255,255,.025)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = .8; ctx.stroke();
+      ctx.beginPath(); for (let r = 1; r < rows; r++) { ctx.moveTo(FX, ty + r * rh); ctx.lineTo(FX + tw, ty + r * rh); } ctx.moveTo(FX + tw * .42, ty); ctx.lineTo(FX + tw * .42, ty + rh * rows); ctx.stroke();
+      // 로딩 막대 (반짝임)
+      for (let r = 0; r < rows; r++) for (let c2 = 0; c2 < 2; c2++) { const x = FX + (c2 ? tw * .42 + 8 : 8), w = (c2 ? tw * .58 - 16 : tw * .42 - 16) * (.45 + .4 * ((r * 7 + c2 * 3) % 5) / 5); ctx.fillStyle = `rgba(255,255,255,${.05 + .04 * Math.sin(f * .15 - r * .7 - c2)})`; E.rr(x, ty + r * rh + 8, w, 6, 3); ctx.fill(); }
+    }
+    ctx.restore();
   });
-  if (S.thinking) {
-    const a = prog(f, s + 34 + steps.length * 24 + 10, s + 44 + steps.length * 24 + 10);
-    if (a > 0) { ctx.save(); ctx.globalAlpha *= a * (.55 + .35 * Math.sin(f * .2)); ctx.font = `500 10.5px ${E.SANS}`; ctx.fillStyle = "#6a6a6a"; ctx.fillText(S.thinking, 27, y); ctx.restore(); }
-  }
+  ctx.restore();
+  if (scroll > 0) { const g = ctx.createLinearGradient(0, 40, 0, 62); g.addColorStop(0, cc.panel); g.addColorStop(1, E.hexA(cc.panel, 0)); ctx.fillStyle = g; ctx.fillRect(1, 40, PW - 2, 22); }
   // 입력창 (아래 버튼 줄까지 한 상자 안에)
-  const by = PHH - 148, bh = 104, ry = by + bh - 20;
   E.rr(8, by, 319, bh, 12); ctx.fillStyle = cc.input; ctx.fill();
   ctx.font = `400 10.5px ${E.SANS}`; ctx.fillStyle = "#7a7a7a";
   const words = Array.from(String(S.placeholder)); let line = "", ly = by + 20;
@@ -184,14 +226,15 @@ E.start({
     { title: "④ 메뉴 항목 고르기", durKey: "4",
       rows: [[{ type: "bool", key: "pick", label: "메뉴 항목 클릭하기" }, { type: "select", key: "pickItem", label: "고를 항목", options: [["1", "첫 번째 (이 동영상 분석하기)"], ["2", "두 번째 (아이디어 얻기)"]] }],
         [{ type: "number", key: "d4", label: "길이 (프레임)", min: 10, max: 160 }]] },
-    { title: "⑤ 채팅창 뿅", durKey: "5", hint: "버튼을 누르면 화면 가운데에 에이전트 채팅창이 튀어나오고, 생각 중 문구가 바뀌며 단계가 하나씩 쌓여요. 진행 문구·단계는 줄마다 하나.",
+    { title: "⑤ 채팅창 뿅", durKey: "5", hint: "버튼을 누르면 화면 가운데에 에이전트 채팅창이 튀어나오고, 진행 문구가 차례로 바뀌고, 대화 흐름이 타이핑되며 쌓여요. 넘치면 위로 스크롤돼요. 길이가 모자라면 '길이'를 늘려 주세요.",
       rows: [[{ type: "bool", key: "showChat", label: "채팅창 띄우기" }, { type: "number", key: "d5", label: "길이 (프레임)", min: 24, max: 600 }],
         [{ type: "number", key: "chatW", label: "채팅창 너비 (px)", min: 500, max: 1400 }, { type: "bool", key: "dim", label: "뒤 화면 어둡게" }],
         [{ key: "chatTitle", label: "채팅 제목" }, { key: "model", label: "모델 이름" }],
         [{ key: "ask1", label: "요청 첫 줄" }, { key: "ask2", label: "요청 둘째 줄" }],
         [{ type: "images", key: "img.thumb", label: "요청 옆 작은 썸네일 (비우면 빨간 칸)", max: 1 }],
-        [{ type: "textarea", key: "status", label: "진행 문구 (차례로 바뀜)" }],
-        [{ type: "textarea", key: "steps", label: "단계 (하나씩 쌓임)" }],
+        [{ type: "textarea", key: "status", label: "진행 문구 (차례로 바뀜)" }, { type: "number", key: "statusCycle", label: "문구 바뀌는 간격 (프레임)", min: 12, max: 200 }],
+        [{ type: "textarea", key: "flow", label: "대화 흐름 (줄마다: 글 = 타이핑 / > 단계 / # 제목 / [표])" }],
+        [{ type: "number", key: "typeSpeed", label: "타이핑 속도 (글자/프레임)", min: .5, max: 12 }],
         [{ key: "thinking", label: "아래 흐린 문구 (비우면 없음)" }],
         [{ type: "textarea", key: "placeholder", label: "입력창 안내 문구" }],
         [{ type: "sub", label: "색상" }], [{ type: "color", key: "chatColors.panel", label: "채팅창" }, { type: "color", key: "chatColors.bubble", label: "요청 말풍선" }],
