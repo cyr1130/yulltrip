@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>모션 09</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script src="engine.js"></script><script src="common.js"></script></head>
+<body>
+<script>
+const E = Engine, U = U04, I = U04.icons; let ctx;
+const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
+
+const S = {
+  keyMode: "solid", bg: "#0f0f0f", keyBg: "#00ff00",
+  items: "세그먼트 편집 ✦\n~크리에이티브 업스케일 ✦\n|\n동영상 편집 ✦\n~연장 ✦\n프레임 캡처 ⌄\n모션 캡처\n길이 다듬기\n오디오 추출\n추가 도구 ⌄\n에이전트에게 요청 ⌄\n|\n(아이콘)\n(아이콘)",
+  view: "fit", zoom: 1, startItem: 5, clickItem: 10, showCursor: true,
+  menu: "이 동영상 분석하기\n아이디어 얻기", pick: true, pickItem: "1", pillR: 26,
+  colors: { bar: "#1c1c1c", text: "#ececec", icon: "#ececec", sparkle: "#2f9bff", hover: "#ffffff", line: "#3a3a3a", pill: "#2a2a2a", pillText: "#ececec" },
+  d1: 16, d2: 80, d3: 30, d4: 44,
+  // ⓪ 이미지 + 클릭
+  d0: 40, cardW: 1200, cardMaxH: 1500, cardLabel: "a3b3275a-f42c-4e2a-a750-528635eae740", playerBar: true, playerTime: "00:02 / 00:27", showPort: true,
+  cardColors: { empty: "#2a2a2a", select: "#e6e6e6", label: "#6f6f6f" },
+  // ⑤ 채팅창
+  showChat: true, chatW: 920, dim: true, chatTitle: "새 채팅",
+  ask1: "Video to prompt 을(를) 사용하여", ask2: "a3b32...ae740 을(를) 분석하세요",
+  status: "생각을 정리하는 중...",
+  steps: "", thinking: "생각 중...",
+  placeholder: "아이디어나 스크립트로 시작하세요. @ 기호를 사용하여 요소를 멘션하거나 \"/\"를 입력하여 스킬을 사용하세요.",
+  model: "Dola Seed 2.0 Lite", img: { thumb: [], card: [] },
+  chatColors: { panel: "#1b1b1b", bubble: "#2a2a2a", input: "#222222", text: "#ececec", sub: "#bdbdbd", spin: "#2f9bff" },
+  d5: 140,
+};
+const T = () => {
+  const z = +S.d0, a = z + +S.d1, b = +S.d2, c = +S.d3, s4 = a + b + c, click2 = s4 + Math.round(+S.d4 * .62);
+  const chat = S.pick ? click2 + 8 : s4 + 2;
+  const total = S.showChat ? chat + +S.d5 : s4 + (S.pick ? +S.d4 : 0) + 24;
+  return { z, clk0: Math.max(8, Math.round(z * .62)), s2: a, s3: a + b, s4, click2, chat, total };
+};
+
+// 드리미나 동영상 툴바 아이콘 (24 그리드)
+const R = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
+const tri = (c, x, y, s) => { c.beginPath(); c.moveTo(x - s * .6, y - s); c.lineTo(x + s, y); c.lineTo(x - s * .6, y + s); c.closePath(); c.fill(); };
+const V = {
+  segment: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.setLineDash([3, 3]); R(c, -10, -10, 20, 20, 4); c.stroke(); c.setLineDash([]); tri(c, 0, 0, 4.5); }),
+  hd: (x, y, s, col) => I.hd(x, y, s, col),
+  videoEdit: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.beginPath(); c.arc(0, 0, 10, Math.PI * .1, Math.PI * 1.75); c.stroke(); tri(c, -1, 0, 4); c.beginPath(); c.moveTo(4, 9); c.lineTo(11, 2); c.stroke(); }),
+  extend: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.setLineDash([3, 3]); R(c, -10, -8, 18, 18, 4); c.stroke(); c.setLineDash([]); c.beginPath(); c.moveTo(9, -12); c.lineTo(9, -4); c.moveTo(5, -8); c.lineTo(13, -8); c.stroke(); }),
+  camera: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { R(c, -11, -6, 22, 16, 3); c.stroke(); c.beginPath(); c.moveTo(-5, -6); c.lineTo(-3, -10); c.lineTo(3, -10); c.lineTo(5, -6); c.stroke(); c.beginPath(); c.arc(0, 2, 4.5, 0, 7); c.stroke(); }),
+  motion: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.beginPath(); c.arc(0, -8, 3, 0, 7); c.stroke(); c.beginPath(); c.moveTo(-10, -3); c.lineTo(10, -3); c.moveTo(0, -3); c.lineTo(0, 3); c.lineTo(-6, 11); c.moveTo(0, 3); c.lineTo(6, 11); c.stroke(); }),
+  trim: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.beginPath(); c.moveTo(-6, -10); c.lineTo(-10, -10); c.lineTo(-10, 10); c.lineTo(-6, 10); c.moveTo(6, -10); c.lineTo(10, -10); c.lineTo(10, 10); c.lineTo(6, 10); c.moveTo(-2, -6); c.lineTo(-2, 6); c.moveTo(2, -6); c.lineTo(2, 6); c.stroke(); }),
+  audio: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.beginPath(); c.arc(0, -1, 10, Math.PI * .55, Math.PI * 2.2); c.stroke(); c.beginPath(); c.moveTo(-4, -3); c.lineTo(-4, 1); c.moveTo(0, -6); c.lineTo(0, 4); c.moveTo(4, -3); c.lineTo(4, 1); c.moveTo(7, 7); c.lineTo(7, 12); c.moveTo(10, 9); c.lineTo(10, 12); c.stroke(); }),
+  tools: I.tools, agent: I.agent, full: I.full, download: I.download,
+  analyze: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { c.beginPath(); c.moveTo(-9, 9); c.lineTo(3, -3); c.moveTo(-9, -3); c.lineTo(-3, 3); c.stroke(); c.beginPath(); c.moveTo(7, -11); c.lineTo(7, -5); c.moveTo(4, -8); c.lineTo(10, -8); c.moveTo(-6, -11); c.lineTo(-6, -8); c.moveTo(-7.5, -9.5); c.lineTo(-4.5, -9.5); c.stroke(); }),
+  chat: (x, y, s, col, lw = 2) => U.ico(x, y, s, col, lw, c => { R(c, -10, -9, 20, 15, 5); c.stroke(); c.beginPath(); c.moveTo(-5, 6); c.lineTo(-7, 11); c.lineTo(0, 6); c.stroke(); }),
+};
+const ICONS = ["segment", "hd", "videoEdit", "extend", "camera", "motion", "trim", "audio", "tools", "agent", "full", "download"];
+const MENU_ICONS = ["analyze", "chat"];
+const BH = 104, FS = 34, PADX = 22, PH = 82, PFS = 33;
+
+function parse() {
+  ctx.font = `500 ${FS}px ${E.SANS}`; const out = []; let x = 14, k = 0;
+  for (const raw of String(S.items).split("\n")) {
+    let line = raw.trim(); if (!line) continue;
+    if (line === "|") { out.push({ div: 1, x: x + 14 }); x += 30; continue; }
+    const dim = line.startsWith("~"); if (dim) line = line.slice(1).trim();
+    const star = /✦/.test(line), chev = /⌄/.test(line), iconOnly = /^\(아이콘\)$/.test(line);
+    const label = iconOnly ? "" : line.replace(/[✦⌄]/g, "").trim();
+    let w = PADX * 2 + 40 + (label ? 14 + ctx.measureText(label).width : 0) + (star ? 12 + 26 : 0) + (chev ? 12 + 22 : 0);
+    if (iconOnly) w = 40 + PADX * 2;
+    out.push({ label, star, chev, dim, icon: ICONS[k % ICONS.length], x, w, idx: k++ }); x += w + 6;
+  }
+  return { items: out, width: x + 8 };
+}
+function parseMenu() {
+  ctx.font = `500 ${PFS}px ${E.SANS}`;
+  return String(S.menu).split("\n").map(s => s.trim()).filter(Boolean).map((label, i) => ({ label, icon: MENU_ICONS[i % MENU_ICONS.length], w: 24 + 36 + 14 + ctx.measureText(label).width + 30 }));
+}
+function drawItem(it, hover, active, press, flip) {
+  const c = S.colors, x = it.x, y = 12, h = BH - 24;
+  if (hover > 0 || active > 0) { E.rr(x, y, it.w, h, 18); ctx.fillStyle = E.hexA(c.hover, .07 * hover + .12 * active); ctx.fill(); }
+  ctx.save(); const cx = x + it.w / 2, cy = BH / 2, s = 1 - .06 * press; ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+  const ic = it.dim ? E.hexA(c.icon, .3) : c.icon, tc = it.dim ? E.hexA(c.text, .3) : c.text;
+  let px = x + PADX; V[it.icon](px + 20, cy, 40, ic, 2.1); px += 40;
+  ctx.font = `${active > .5 ? 600 : 500} ${FS}px ${E.SANS}`; ctx.textBaseline = "middle";
+  if (it.label) { px += 14; ctx.fillStyle = tc; ctx.fillText(it.label, px, cy + 1); px += ctx.measureText(it.label).width; }
+  if (it.star) { px += 12; I.sparkle(px + 13, cy, 26, c.sparkle); px += 26; }
+  if (it.chev) { px += 12; ctx.save(); ctx.translate(px + 11, cy + 1); ctx.rotate(Math.PI * flip); I.chevron(0, 0, 22, ic, 2.2); ctx.restore(); px += 22; }
+  ctx.restore();
+}
+
+// ---------- ⑤ 에이전트 채팅창 (원본 화면 335×705 기준 좌표, u 배로 키움) ----------
+const PW = 335, PHH = 560;
+function shimmerText(txt, x, y, col, f) {
+  ctx.fillStyle = col; ctx.fillText(txt, x, y);
+  const w = ctx.measureText(txt).width, ph = ((f % 36) / 36) * (w + 80) - 40;
+  ctx.save(); ctx.globalCompositeOperation = "source-atop";
+  const g = ctx.createLinearGradient(x + ph - 30, 0, x + ph + 30, 0); g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(.5, "rgba(255,255,255,.9)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.restore(); ctx.save(); ctx.fillStyle = g; ctx.globalAlpha *= .9; ctx.fillText(txt, x, y); ctx.restore();
+}
+function spinner(x, y, r, col, f) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(f * .32); ctx.strokeStyle = col; ctx.lineCap = "round"; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * .7); ctx.stroke(); ctx.globalAlpha *= .55; ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, Math.PI * 1.5); ctx.stroke(); ctx.restore();
+}
+function chat(f, s) {
+  const e0 = prog(f, s, s + 12); if (e0 <= 0) return;
+  const cc = S.chatColors, u = (+S.chatW || 920) / PW, ph = PHH * u;
+  if (S.dim && S.keyMode !== "none") { ctx.fillStyle = `rgba(0,0,0,${.6 * easeOut(e0)})`; ctx.fillRect(0, 0, W, H); }
+  const sc = lerp(.55, 1, back(e0)), x0 = W / 2 - PW * u / 2, y0 = H / 2 - ph / 2;
+  ctx.save(); ctx.globalAlpha = clamp(e0 * 2.5);
+  ctx.translate(W / 2, H / 2 + lerp(80, 0, easeOut(e0))); ctx.scale(sc * u, sc * u); ctx.translate(-PW / 2, -PHH / 2);
+  // 창
+  U.shadow(S, () => { E.rr(0, 0, PW, PHH, 14); ctx.fillStyle = cc.panel; ctx.fill(); }, 30, 8, "rgba(0,0,0,.6)");
+  E.rr(0, 0, PW, PHH, 14); ctx.fillStyle = cc.panel; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = .7; ctx.stroke();
+  ctx.textBaseline = "middle";
+  // 머리줄
+  ctx.font = `600 11px ${E.SANS}`; ctx.fillStyle = cc.text; ctx.fillText(S.chatTitle, 14, 22); const tw = ctx.measureText(S.chatTitle).width;
+  I.chevron(14 + tw + 9, 23, 9, cc.text, 1.1);
+  V.chat(247, 22, 12, cc.sub, 1.1); I.agent(279, 22, 12, cc.sub, 1.1); I.full(312, 22, 11, cc.sub, 1.1);
+  // 요청 말풍선
+  const eb = easeOut(prog(f, s + 6, s + 16));
+  if (eb > 0) {
+    ctx.save(); ctx.globalAlpha *= eb; ctx.translate(0, lerp(10, 0, eb));
+    ctx.font = `500 10.5px ${E.SANS}`; const bw = Math.min(290, Math.max(ctx.measureText(S.ask1).width, ctx.measureText(S.ask2).width) + 50), bx = 317 - bw;
+    E.rr(bx, 60, bw, 58, 10); ctx.fillStyle = cc.bubble; ctx.fill();
+    V.analyze(bx + 18, 79, 10, cc.text, 1.1); ctx.fillStyle = cc.text; ctx.fillText(S.ask1, bx + 33, 79);
+    const im = U.img(S, "img.thumb");
+    if (im) U.photo(im, bx + 13, 91, 10, 12, 1.5); else { E.rr(bx + 13, 91, 10, 12, 1.5); const g = ctx.createLinearGradient(0, 91, 0, 103); g.addColorStop(0, "#5a1a1a"); g.addColorStop(1, "#c4202a"); ctx.fillStyle = g; ctx.fill(); }
+    ctx.fillStyle = cc.text; ctx.fillText(S.ask2, bx + 33, 97);
+    ctx.restore();
+  }
+  // 진행 문구 + 로딩
+  const es = prog(f, s + 16, s + 22);
+  if (es > 0) {
+    ctx.save(); ctx.globalAlpha *= es;
+    const list = String(S.status).split("\n").map(v => v.trim()).filter(Boolean), cyc = 40;
+    const k = Math.max(0, Math.floor((f - s - 16) / cyc)) % Math.max(1, list.length), fade = clamp(((f - s - 16) % cyc) / 5);
+    spinner(28, 143, 5.5, cc.spin, f);
+    ctx.font = `600 11px ${E.SANS}`; ctx.globalAlpha *= (list.length > 1 ? fade : 1); if (list[k]) shimmerText(list[k], 41, 143, cc.text, f);
+    ctx.restore();
+  }
+  // 단계
+  const steps = String(S.steps).split("\n").map(v => v.trim()).filter(Boolean); let y = 174;
+  steps.forEach((st, i) => {
+    const a = easeOut(prog(f, s + 34 + i * 24, s + 42 + i * 24)); if (a <= 0) return;
+    const last = i === steps.length - 1;
+    ctx.save(); ctx.globalAlpha *= a; ctx.font = `500 10.5px ${E.SANS}`;
+    if (i === 0) V.analyze(31, y, 10, cc.sub, 1.1); else U.ico(31, y, 10, cc.sub, 1.1, c => { c.beginPath(); c.roundRect(-10, -10, 18, 18, 4); c.stroke(); c.beginPath(); c.arc(1, 1, 4.5, 0, 7); c.moveTo(4.5, 4.5); c.lineTo(9, 9); c.stroke(); });
+    if (last) shimmerText(st, 41, y, cc.sub, f); else { ctx.fillStyle = cc.sub; ctx.fillText(st, 41, y); }
+    ctx.restore(); y += 28;
+  });
+  if (S.thinking) {
+    const a = prog(f, s + 34 + steps.length * 24 + 10, s + 44 + steps.length * 24 + 10);
+    if (a > 0) { ctx.save(); ctx.globalAlpha *= a * (.55 + .35 * Math.sin(f * .2)); ctx.font = `500 10.5px ${E.SANS}`; ctx.fillStyle = "#6a6a6a"; ctx.fillText(S.thinking, 27, y); ctx.restore(); }
+  }
+  // 입력창 (아래 버튼 줄까지 한 상자 안에)
+  const by = PHH - 148, bh = 104, ry = by + bh - 20;
+  E.rr(8, by, 319, bh, 12); ctx.fillStyle = cc.input; ctx.fill();
+  ctx.font = `400 10.5px ${E.SANS}`; ctx.fillStyle = "#7a7a7a";
+  const words = Array.from(String(S.placeholder)); let line = "", ly = by + 20;
+  for (const ch of words) { if (ctx.measureText(line + ch).width > 290) { ctx.fillText(line, 20, ly); line = ch.trim() ? ch : ""; ly += 18; if (ly > by + 40) break; } else line += ch; }
+  if (ly <= by + 40) ctx.fillText(line, 20, ly);
+  // 아래 버튼 줄
+  I.plus(31, ry, 12, cc.sub, 1.1); U.ico(61, ry, 12, cc.sub, 1.1, c => { c.beginPath(); c.moveTo(-9, -4); c.lineTo(9, -4); c.moveTo(-9, 4); c.lineTo(9, 4); c.stroke(); c.beginPath(); c.arc(3, -4, 2.5, 0, 7); c.fill(); c.beginPath(); c.arc(-3, 4, 2.5, 0, 7); c.fill(); });
+  V.analyze(91, ry, 11, cc.sub, 1.1); I.at(121, ry, 11, cc.sub, 1.1);
+  const sx = 306, sr = 12;
+  ctx.font = `500 10px ${E.SANS}`; const mw = ctx.measureText(S.model).width + 32, mx2 = sx - sr - 10 - mw;
+  E.rr(mx2, ry - 12, mw, 24, 7); ctx.fillStyle = "#2c2c2c"; ctx.fill(); ctx.fillStyle = cc.text; ctx.fillText(S.model, mx2 + 9, ry); I.chevron(mx2 + mw - 12, ry + 1, 8, cc.text, 1.1);
+  ctx.beginPath(); ctx.arc(sx, ry, sr, 0, 7); ctx.fillStyle = "#ffffff"; ctx.fill(); E.rr(sx - 3.5, ry - 3.5, 7, 7, 1.2); ctx.fillStyle = "#111"; ctx.fill();
+  ctx.font = `400 7.5px ${E.SANS}`; ctx.fillStyle = "#555"; ctx.textAlign = "center"; ctx.fillText("AI 생성 콘텐츠", PW / 2, PHH - 14); ctx.textAlign = "left";
+  ctx.restore();
+}
+
+// ---------- ⓪ 이미지(동영상) 카드 ----------
+function cardSize() {
+  const im = U.img(S, "img.card"), r = im ? im.naturalWidth / im.naturalHeight : 4 / 3;
+  const cw = Math.min(+S.cardW || 1000, (+S.cardMaxH || 1100) * r); return { im, cw, ch: cw / r };
+}
+function playIcon(x, y, s, col, playing) {
+  ctx.fillStyle = col;
+  if (playing) { ctx.fillRect(x - s * .45, y - s * .5, s * .3, s); ctx.fillRect(x + s * .15, y - s * .5, s * .3, s); }
+  else { ctx.beginPath(); ctx.moveTo(x - s * .35, y - s * .5); ctx.lineTo(x + s * .5, y); ctx.lineTo(x - s * .35, y + s * .5); ctx.closePath(); ctx.fill(); }
+}
+function card(x, y, cw, ch, im, appear, hover, sel, f) {
+  if (appear <= 0) return; const cc = S.cardColors, R0 = 18;
+  ctx.save(); ctx.globalAlpha *= clamp(appear * 1.6); const s = lerp(.94, 1, appear) * (1 + .008 * hover); const cx = x + cw / 2, cy = y + ch / 2;
+  ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+  // 파일 이름 (선택되면 보임)
+  if (S.cardLabel && sel > 0) {
+    ctx.save(); ctx.globalAlpha *= sel; ctx.font = `400 30px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = cc.label;
+    E.rr(x + 2, y - 48, 28, 28, 6); ctx.strokeStyle = cc.label; ctx.lineWidth = 2.5; ctx.stroke(); ctx.beginPath(); ctx.arc(x + 16, y - 34, 5, 0, 7); ctx.stroke();
+    ctx.fillText(S.cardLabel, x + 44, y - 33); ctx.restore();
+  }
+  U.shadow(S, () => { E.rr(x, y, cw, ch, R0); ctx.fillStyle = cc.empty; ctx.fill(); }, 40, 14, "rgba(0,0,0,.5)");
+  if (im) U.photo(im, x, y, cw, ch, R0); else { E.rr(x, y, cw, ch, R0); const g = ctx.createLinearGradient(x, y, x + cw, y + ch); g.addColorStop(0, "#3a3a3a"); g.addColorStop(1, cc.empty); ctx.fillStyle = g; ctx.fill(); }
+  if (hover > 0 && sel < 1) { E.rr(x, y, cw, ch, R0); ctx.fillStyle = `rgba(255,255,255,${.06 * hover * (1 - sel)})`; ctx.fill(); }
+  // 플레이어 줄
+  if (S.playerBar) {
+    const ph = 76, by = y + ch - ph - 24, playing = sel > .5, fs = 30;
+    ctx.font = `500 ${fs}px ${E.SANS}`; ctx.textBaseline = "middle"; const tw = ctx.measureText(S.playerTime).width, pw = 80 + tw + 30;
+    E.rr(x + 24, by, pw, ph, ph / 2); ctx.fillStyle = "rgba(40,40,40,.72)"; ctx.fill();
+    playIcon(x + 24 + 44, by + ph / 2, 26, "#f2f2f2", playing); ctx.fillStyle = "#f2f2f2"; ctx.fillText(S.playerTime, x + 24 + 80, by + ph / 2 + 1);
+    [0, 1].forEach(i => {
+      const bx = x + cw - 24 - ph / 2 - i * (ph + 14), byc = by + ph / 2; ctx.beginPath(); ctx.arc(bx, byc, ph / 2, 0, 7); ctx.fillStyle = "rgba(40,40,40,.72)"; ctx.fill();
+      ctx.strokeStyle = "#f2f2f2"; ctx.lineWidth = 3.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+      if (i === 0) { ctx.moveTo(bx - 4, byc - 4); ctx.lineTo(bx - 13, byc - 13); ctx.moveTo(bx - 13, byc - 6); ctx.lineTo(bx - 13, byc - 13); ctx.lineTo(bx - 6, byc - 13); ctx.moveTo(bx + 4, byc + 4); ctx.lineTo(bx + 13, byc + 13); ctx.moveTo(bx + 13, byc + 6); ctx.lineTo(bx + 13, byc + 13); ctx.lineTo(bx + 6, byc + 13); }
+      else { ctx.moveTo(bx - 14, byc - 5); ctx.lineTo(bx - 8, byc - 5); ctx.lineTo(bx, byc - 12); ctx.lineTo(bx, byc + 12); ctx.lineTo(bx - 8, byc + 5); ctx.lineTo(bx - 14, byc + 5); ctx.closePath(); ctx.moveTo(bx + 6, byc - 6); ctx.quadraticCurveTo(bx + 11, byc, bx + 6, byc + 6); }
+      ctx.stroke();
+    });
+    // 진행 막대
+    const pr = playing ? .08 + ((f % 240) / 240) * .25 : .08; ctx.save(); E.rr(x, y, cw, ch, R0); ctx.clip(); ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x, y + ch - 7, cw, 7); ctx.fillStyle = "#e9e9e9"; ctx.fillRect(x, y + ch - 7, cw * pr, 7); ctx.restore();
+  }
+  // 선택 테두리
+  if (sel > 0) { E.rr(x - 4, y - 4, cw + 8, ch + 8, R0 + 3); ctx.strokeStyle = E.hexA(cc.select, .9 * sel); ctx.lineWidth = 4; ctx.stroke(); }
+  ctx.restore();
+  // 오른쪽 + 연결점
+  if (S.showPort) { const px = x + cw + 50, py = y + ch / 2; ctx.save(); ctx.globalAlpha *= clamp(appear * 1.6) * .9; ctx.beginPath(); ctx.arc(px, py, 18, 0, 7); ctx.fillStyle = S.bg; ctx.fill(); ctx.strokeStyle = "#5a5a5a"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.beginPath(); ctx.moveTo(px - 8, py); ctx.lineTo(px + 8, py); ctx.moveTo(px, py - 8); ctx.lineTo(px, py + 8); ctx.stroke(); ctx.restore(); }
+}
+
+E.start({
+  title: "모션 09 · 이미지 클릭 → 툴바 + 에이전트 메뉴", group: "릴스04 템플릿", file: "motion09", state: S, alpha: true,
+  intro: "캔버스에 이미지(동영상) 카드가 놓여 있고, 마우스가 카드를 클릭하면 선택 테두리와 함께 위에 편집 툴바가 떠올라요. 이어서 마우스가 버튼을 훑어가요. '에이전트에게 요청'을 누르면 화살표가 위로 뒤집히며 아래로 메뉴가 펼쳐지고, 원하면 메뉴 항목 하나를 골라 눌러요.",
+  sections: [
+    { title: "공통", rows: [...U.bgRows,
+        [{ type: "select", key: "view", label: "보기 방식", options: [["pan", "따라가며 보기 (크게)"], ["fit", "한 줄 전체 (작게)"]] }, { type: "number", key: "zoom", label: "크기 배율", min: .3, max: 2 }]] },
+    { title: "⓪ 이미지 + 클릭", durKey: "0", hint: "이미지나 동영상을 넣으면 원본 비율 그대로 카드가 돼요. 비우면 회색 카드.",
+      rows: [[{ type: "images", key: "img.card", label: "카드 이미지 / 동영상", max: 1, video: true }],
+        [{ type: "number", key: "cardW", label: "카드 최대 너비 (px)", min: 300, max: 1400 }, { type: "number", key: "cardMaxH", label: "카드 최대 높이 (px)", min: 300, max: 1800 }],
+        [{ key: "cardLabel", label: "카드 위 파일 이름 (비우면 없음)" }, { key: "playerTime", label: "재생 시간 글자" }],
+        [{ type: "bool", key: "playerBar", label: "아래 재생 버튼 줄" }, { type: "bool", key: "showPort", label: "오른쪽 + 연결점" }],
+        [{ type: "number", key: "d0", label: "길이 (프레임, 클릭까지 약 62%)", min: 12, max: 160 }],
+        [{ type: "color", key: "cardColors.select", label: "선택 테두리" }, { type: "color", key: "cardColors.empty", label: "빈 카드" }]] },
+    { title: "① 툴바 등장", durKey: "1", hint: "버튼은 줄마다 하나. 앞에 ~ 를 붙이면 흐린(비활성) 버튼, 뒤에 ✦ 는 파란 별, ⌄ 는 화살표. '|' 는 구분선, '(아이콘)' 은 글자 없는 아이콘 버튼. 아이콘은 위에서부터 순서대로 붙어요.",
+      rows: [[{ type: "textarea", key: "items", label: "버튼 목록" }], [{ type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 90 }]] },
+    { title: "② 커서가 훑기", durKey: "2",
+      rows: [[{ type: "number", key: "startItem", label: "시작 버튼 번호", min: 1, max: 30 }, { type: "number", key: "clickItem", label: "메뉴 열 버튼 번호", min: 1, max: 30 }],
+        [{ type: "bool", key: "showCursor", label: "마우스 커서" }, { type: "number", key: "d2", label: "길이 (프레임)", min: 10, max: 400 }]] },
+    { title: "③ 클릭 → 메뉴 펼침", durKey: "3", hint: "메뉴 항목은 줄마다 하나. 아이콘은 순서대로 '분석' → '말풍선' 이 붙어요.",
+      rows: [[{ type: "textarea", key: "menu", label: "메뉴 항목" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 160 }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.bar", label: "툴바" }, { type: "color", key: "colors.text", label: "글자" }],
+        [{ type: "color", key: "colors.icon", label: "아이콘" }, { type: "color", key: "colors.sparkle", label: "파란 별" }],
+        [{ type: "color", key: "colors.pill", label: "메뉴 버튼" }, { type: "color", key: "colors.pillText", label: "메뉴 글자" }],
+        [{ type: "number", key: "pillR", label: "메뉴 버튼 모서리 둥글기 (px, 최대 41)", min: 0, max: 41 }]] },
+    { title: "④ 메뉴 항목 고르기", durKey: "4",
+      rows: [[{ type: "bool", key: "pick", label: "메뉴 항목 클릭하기" }, { type: "select", key: "pickItem", label: "고를 항목", options: [["1", "첫 번째 (이 동영상 분석하기)"], ["2", "두 번째 (아이디어 얻기)"]] }],
+        [{ type: "number", key: "d4", label: "길이 (프레임)", min: 10, max: 160 }]] },
+    { title: "⑤ 채팅창 뿅", durKey: "5", hint: "버튼을 누르면 화면 가운데에 에이전트 채팅창이 튀어나오고, 생각 중 문구가 바뀌며 단계가 하나씩 쌓여요. 진행 문구·단계는 줄마다 하나.",
+      rows: [[{ type: "bool", key: "showChat", label: "채팅창 띄우기" }, { type: "number", key: "d5", label: "길이 (프레임)", min: 24, max: 600 }],
+        [{ type: "number", key: "chatW", label: "채팅창 너비 (px)", min: 500, max: 1400 }, { type: "bool", key: "dim", label: "뒤 화면 어둡게" }],
+        [{ key: "chatTitle", label: "채팅 제목" }, { key: "model", label: "모델 이름" }],
+        [{ key: "ask1", label: "요청 첫 줄" }, { key: "ask2", label: "요청 둘째 줄" }],
+        [{ type: "images", key: "img.thumb", label: "요청 옆 작은 썸네일 (비우면 빨간 칸)", max: 1 }],
+        [{ type: "textarea", key: "status", label: "진행 문구 (차례로 바뀜)" }],
+        [{ type: "textarea", key: "steps", label: "단계 (하나씩 쌓임)" }],
+        [{ key: "thinking", label: "아래 흐린 문구 (비우면 없음)" }],
+        [{ type: "textarea", key: "placeholder", label: "입력창 안내 문구" }],
+        [{ type: "sub", label: "색상" }], [{ type: "color", key: "chatColors.panel", label: "채팅창" }, { type: "color", key: "chatColors.bubble", label: "요청 말풍선" }],
+        [{ type: "color", key: "chatColors.text", label: "글자" }, { type: "color", key: "chatColors.spin", label: "로딩 아이콘" }]] },
+  ],
+  images: { "img.thumb": [], "img.card": [] },
+  durations: { 0: S => +S.d0, 1: S => +S.d1, 2: S => +S.d2, 3: S => +S.d3, 4: S => S.showChat ? (S.pick ? Math.round(+S.d4 * .62) + 8 : 2) : (S.pick ? +S.d4 : 0), 5: S => S.showChat ? +S.d5 : 24 },
+  length: () => T().total,
+  render(f) {
+    ctx = E.ctx; const t = T(); U.bg(S); const c = S.colors;
+    const { items, width } = parse(), btns = items.filter(o => !o.div), nb = btns.length;
+    const a = clamp(Math.round(+S.startItem) - 1, 0, nb - 1), b = clamp(Math.round(+S.clickItem) - 1, 0, nb - 1);
+    const cen = i => btns[i].x + btns[i].w / 2, B = btns[b];
+    // 메뉴 배치 (툴바 좌표)
+    const menu = parseMenu(), mx = B.x - 8, my0 = BH + 16, GAP = 12;
+    menu.forEach((m, i) => { m.x = mx; m.y = my0 + i * (PH + GAP); });
+    const menuH = menu.length ? menu.length * (PH + GAP) - GAP + 16 : 0;
+    // 타이밍
+    const click = t.s3 + 2, cp = prog(f, click - 2, click + 6), press = cp > 0 && cp < 1 ? Math.sin(Math.PI * cp) : 0;
+    const open = easeOut(prog(f, click, click + 12));
+    const pi = clamp(Math.round(+S.pickItem) - 1, 0, Math.max(0, menu.length - 1)), P = menu[pi];
+    const mv = S.pick && P ? easeInOut(prog(f, t.s4, t.s4 + +S.d4 * .55)) : 0;
+    const click2 = t.click2, cp2 = S.pick ? prog(f, click2 - 2, click2 + 6) : 0, press2 = cp2 > 0 && cp2 < 1 ? Math.sin(Math.PI * cp2) : 0;
+    const chosen = S.pick ? easeOut(prog(f, click2, click2 + 6)) : 0;
+    // 커서 (툴바 좌표)
+    const steps = Math.max(1, Math.abs(b - a)), q = prog(f - t.s2, 0, +S.d2) * steps, seg = Math.min(steps - 1, Math.floor(q)), dir = b >= a ? 1 : -1;
+    const i0 = a + dir * seg, i1 = a + dir * Math.min(steps, seg + 1), barX = a === b ? cen(a) : lerp(cen(i0), cen(i1), easeInOut(q - seg));
+    const tx = P ? P.x + 60 + P.w * .25 : barX, ty = P ? P.y + PH / 2 : BH / 2;
+    // 카드 (툴바 아래 가운데)
+    const { im, cw, ch } = cardSize(), CG = 70, cx0 = width / 2 - cw / 2, cy0 = BH + CG, GH = BH + CG + ch;
+    const cpx = cx0 + cw * .58, cpy = cy0 + ch * .42, clk0 = t.clk0;
+    const e0 = easeInOut(prog(f, 4, clk0 - 3)), m0 = easeInOut(prog(f, clk0 + 10, t.s2));
+    const preX = lerp(lerp(cpx + 320, cpx, e0), barX, m0), preY = lerp(lerp(cpy + 520, cpy, e0), BH / 2, m0);
+    const curX = lerp(preX, tx, mv), curY = lerp(preY, ty, mv);
+    const cp0 = prog(f, clk0 - 2, clk0 + 6), press0 = cp0 > 0 && cp0 < 1 ? Math.sin(Math.PI * cp0) : 0, sel = easeOut(prog(f, clk0, clk0 + 6));
+    // 화면 배치: 메뉴가 열리면 위로 살짝 올려 툴바+메뉴가 가운데에
+    const fitK = (W - 80) / width, k = (S.view === "fit" ? fitK : 1) * (+S.zoom || 1);
+    let ox;
+    if (width * k <= W - 80) ox = (W - width * k) / 2;
+    else { const want = W / 2 - lerp(width / 2, curX, m0) * k; ox = clamp(want, W - 40 - width * k, 40); }
+    const ca = easeOut(prog(f, 0, 14)), p = back(prog(f, clk0 + 2, clk0 + 14)), pa = clamp(prog(f, clk0 + 2, clk0 + 8));
+    ctx.save(); ctx.translate(ox, H / 2 - GH * k / 2); ctx.scale(k, k);
+    const hov0 = clamp(1 - Math.hypot(curX - cpx, curY - cpy) / 300) * (1 - m0);
+    card(cx0, cy0, cw, ch, im, ca, hov0, sel, f);
+    U.ripple(cpx, cpy, prog(f, clk0, clk0 + 16), "#ffffff", 90);
+    ctx.save(); ctx.globalAlpha = pa; ctx.translate(width / 2, BH); ctx.scale(lerp(.92, 1, p), lerp(.92, 1, p)); ctx.translate(-width / 2, -BH + lerp(30, 0, clamp(p)));
+    U.shadow(S, () => { E.rr(0, 0, width, BH, 30); ctx.fillStyle = c.bar; ctx.fill(); }, 60, 20, "rgba(0,0,0,.5)");
+    E.rr(0, 0, width, BH, 30); ctx.fillStyle = c.bar; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 2; ctx.stroke();
+    const hovering = f >= t.s2 - 4 && S.showCursor && mv < .3;
+    items.forEach(it => {
+      if (it.div) { ctx.fillStyle = c.line; ctx.fillRect(it.x, BH / 2 - 26, 2, 52); return; }
+      const d = Math.abs(barX - (it.x + it.w / 2)), hv = hovering ? clamp(1.4 - d / (it.w / 2)) : 0;
+      const isB = it.idx === b;
+      drawItem(it, isB ? Math.max(hv, open) : hv * (1 - open), isB ? open : 0, isB ? press : 0, isB ? open : 0);
+    });
+    U.ripple(cen(b), BH / 2, prog(f, click, click + 16), "#ffffff", 90);
+    ctx.restore();
+    // 메뉴 (아래로 차례로 떨어짐)
+    menu.forEach((m, i) => {
+      const e = easeOut(prog(f, click + 2 + i * 4, click + 14 + i * 4)); if (e <= 0) return;
+      const PR = clamp(+S.pillR, 0, PH / 2), isP = i === pi, hv = isP ? clamp(mv * 1.4 - .3) : 0, pr = isP ? press2 : 0;
+      ctx.save(); ctx.globalAlpha *= e; const cx = m.x + m.w / 2, cy = m.y + PH / 2, s = (1 - .05 * pr) * lerp(.92, 1, e);
+      ctx.translate(cx, cy + lerp(-24, 0, e)); ctx.scale(s, s); ctx.translate(-cx, -cy);
+      U.shadow(S, () => { E.rr(m.x, m.y, m.w, PH, PR); ctx.fillStyle = c.pill; ctx.fill(); }, 30, 10, "rgba(0,0,0,.45)");
+      E.rr(m.x, m.y, m.w, PH, PR); ctx.fillStyle = c.pill; ctx.fill();
+      if (hv > 0 || (isP && chosen > 0)) { E.rr(m.x, m.y, m.w, PH, PR); ctx.fillStyle = E.hexA(c.hover, .07 * hv + .08 * chosen); ctx.fill(); }
+      V[m.icon](m.x + 24 + 18, cy, 36, c.pillText, 2.1);
+      ctx.font = `${isP && chosen > .5 ? 600 : 500} ${PFS}px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = c.pillText; ctx.fillText(m.label, m.x + 24 + 36 + 14, cy + 1);
+      ctx.restore();
+    });
+    if (P && S.pick) U.ripple(tx, ty, prog(f, click2, click2 + 16), "#ffffff", 80);
+    if (S.showCursor) {
+      const inA = easeOut(prog(f, 2, 12)), end = S.pick ? click2 : click, out = easeIn(prog(f, end + 10, Math.min(t.total - 2, end + 26)));
+      U.arrow(curX + 6, curY + 8 + out * 160, 1.5 / Math.max(.6, k), inA * (1 - out), Math.max(press, press2, press0), U.green(S));
+    }
+    ctx.restore();
+    if (S.showChat) chat(f, t.chat);
+  },
+});
+</script>
+<a href="index.html" style="position:fixed;left:12px;bottom:12px;z-index:99;padding:6px 12px;border-radius:999px;background:rgba(20,20,20,.75);color:#fff;font:600 12.5px -apple-system,sans-serif;text-decoration:none">← 목록</a></body></html>
