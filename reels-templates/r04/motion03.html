@@ -111,12 +111,24 @@ function scene(f, t) {
     I.plus(0, -18, 38, "#cfcfcf", 2.2); ctx.fillStyle = "#bdbdbd"; ctx.font = `500 26px ${E.SANS}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(S.refLabel, 0, 32); ctx.restore(); ctx.textAlign = "left";
   }
   // 입력 (한글 조합 타이핑)
-  const tp = prog(f, t.s3, t.s4 - 6), st = typedAt(tp), TX = 232, TYc = PY + 62, FS = 38;
-  ctx.font = `500 ${FS}px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = c.text; ctx.fillText(st.s + st.comp, TX, TYc);
-  const w1 = ctx.measureText(st.s).width, w2 = ctx.measureText(st.s + st.comp).width;
-  if (st.comp) { ctx.fillStyle = c.text; ctx.fillRect(TX + w1, TYc + FS * .62, w2 - w1, 2.5); }
+  // 긴 프롬프트: 전체 문장 기준으로 미리 줄바꿈 → 칸을 넘으면 글자 크기를 줄이고, 그래도 넘치면 위로 밀려 올라감
+  const tp = prog(f, t.s3, t.s4 - 6), st = typedAt(tp), TX = 232, TOP = PY + 62, maxW = PW - IN - 48 - TX, BOTTOM = PY + PHH - 70 - 62;
+  let FS = 38, LH, lines;
+  for (;;) { LH = FS * 1.3; lines = U.wrap(S.text, `500 ${FS}px ${E.SANS}`, maxW); if (TOP + (lines.length - 1) * LH <= BOTTOM || FS <= 28) break; FS -= 2; }
+  const disp = Array.from(st.s).concat(st.comp ? [st.comp] : []), nT = disp.length, compIdx = st.comp ? nT - 1 : -1;
+  let cl = 0; lines.forEach((ln, i) => { if (ln.start <= nT) cl = i; });
+  const maxRows = Math.floor((BOTTOM - TOP) / LH) + 1, sy = Math.max(0, cl - maxRows + 1) * LH;
+  ctx.save(); ctx.beginPath(); ctx.rect(TX - 12, TOP - LH * .62, maxW + 40, BOTTOM - TOP + LH * 1.1); ctx.clip();
+  ctx.font = `500 ${FS}px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillStyle = c.text;
+  const seg = (a, b) => disp.slice(a, b).join("").replace(/\n/g, "");
+  lines.forEach((ln, i) => {
+    const L = Array.from(ln.text).length, a = ln.start; if (a > nT) return; const y = TOP + i * LH - sy;
+    ctx.fillText(seg(a, Math.min(nT, a + L)), TX, y);
+    if (compIdx >= a && compIdx < a + L) { const x1 = ctx.measureText(seg(a, compIdx)).width, x2 = ctx.measureText(seg(a, compIdx + 1)).width; ctx.fillRect(TX + x1, y + FS * .62, x2 - x1, 2.5); }
+  });
   const typing = tp > 0 && tp < 1, blink = Math.floor(f / 8) % 2 === 0;
-  if (f >= t.s3 - 4 && (typing || blink)) { ctx.fillStyle = c.caret; ctx.fillRect(TX + w2 + 3, TYc - FS * .62, 3.5, FS * 1.24); }
+  if (f >= t.s3 - 4 && (typing || blink)) { const ln = lines[cl], cx = ctx.measureText(seg(ln.start, nT)).width, y = TOP + cl * LH - sy; ctx.fillStyle = c.caret; ctx.fillRect(TX + cx + 3, y - FS * .62, 3.5, FS * 1.24); }
+  ctx.restore();
   // 하단 줄
   const BY = PY + PHH - 70, SX = PW - IN - 34 - 44;
   const sp = S.pressSend ? prog(f - t.s4, 4, 12) : 0, press = sp > 0 && sp < 1 ? Math.sin(Math.PI * sp) : 0;
@@ -142,7 +154,7 @@ E.start({
     { title: "참조 이미지", hint: "넣으면 왼쪽 '참조' 칸이 흰 테두리 사진 카드로 바뀌어요. 2~3장 넣으면 뒤로 겹쳐 쌓여요. 비우면 빈 참조 카드.",
       rows: [[{ type: "images", key: "img.ref", label: "참조 이미지 (최대 3장)", max: 3 }], [{ type: "bool", key: "refBadge", label: "+ 버튼 표시" }]] },
     { title: "③ 입력", durKey: "3", hint: "한글은 자음 → 모음 → 받침 순서로 조합되며 써져요.",
-      rows: [[{ key: "text", label: "입력 문구" }, { key: "refLabel", label: "참조 카드 글자" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 300 }, { type: "color", key: "colors.caret", label: "커서 색" }]] },
+      rows: [[{ type: "textarea", key: "text", label: "입력 문구 (길면 자동 줄바꿈)" }], [{ key: "refLabel", label: "참조 카드 글자" }], [{ type: "number", key: "d3", label: "길이 (프레임)", min: 6, max: 300 }, { type: "color", key: "colors.caret", label: "커서 색" }]] },
     { title: "④ 옵션 + 전송", durKey: "4",
       rows: [[{ key: "model", label: "모델" }, { key: "ref", label: "레퍼런스" }], [{ key: "ratio", label: "비율" }, { key: "quality", label: "화질" }], [{ key: "dur", label: "길이 표시" }, { key: "credit", label: "크레딧" }],
         [{ key: "creditOld", label: "줄 그은 크레딧" }, { type: "bool", key: "pressSend", label: "전송 버튼 누르기" }], [{ type: "number", key: "d4", label: "길이 (프레임)", min: 6, max: 120 }],

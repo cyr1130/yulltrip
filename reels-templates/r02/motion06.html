@@ -9,7 +9,7 @@ const { W, H, FPS, clamp, lerp, prog, easeOut, easeIn, easeInOut, back } = E;
 
 const S = {
   img: { render: [] },
-  fileName: "완성_드라마_D365_20초", pctStart: 0, pctEnd: 88, cardScale: 1.4, showImage: true,
+  fileName: "완성_드라마_D365_20초", fitMedia: true, pctStart: 0, pctEnd: 88, cardScale: 1.4, showImage: true,
   keyMode: "dark", keyBg: "#00ff00",
   colors: { bg: "#13111b", grid: "#24212e",
             render: "#18181c", renderName: "#b9b9c2", barTrack: "#2c2b35", bar: "#8571fd", pct: "#a898ff" },
@@ -17,12 +17,18 @@ const S = {
 };
 const im = k => (S.img[k][0] || {}).img;
 const T = () => { const a = +S.d1, b = +S.d2, c = +S.d3; return { s2: a, s3: a + b, total: a + b + c }; };
-const RC = { w: 868, h: 512 };
+// 카드 크기: 첨부한 이미지/영상 비율을 따라감 (가로·세로 모두). 넓이는 기본 카드와 비슷하게 유지
+const RC0 = { w: 868, h: 512 };
+function rcSize() {
+  const img = im("render"), r = S.fitMedia && img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : RC0.w / RC0.h;
+  const A = RC0.w * RC0.h; let w = Math.sqrt(A * r), h = Math.sqrt(A / r);
+  const k = Math.min(1, 1000 / w, 1000 / h); return { w: Math.round(w * k), h: Math.round(h * k) };
+}
 
 function renderCard(f) {
   const t = T(), p = prog(f, 0, Math.max(4, +S.d1)); if (p <= 0) return;
   const a0 = +S.pctStart, a1 = +S.pctEnd, pc = Math.round(lerp(a0, a1, easeOut(prog(f, t.s2, t.s3))));
-  const K = clamp(+S.cardScale || 1, .4, 1.6);
+  const K = clamp(+S.cardScale || 1, .4, 1.6), RC = rcSize();
   ctx.save(); ctx.globalAlpha *= clamp(p * 2.5); const s = K * lerp(.85, 1, back(p)); ctx.translate(720, 1280); ctx.scale(s, s); ctx.translate(-RC.w / 2, -RC.h / 2);
   const shadow = S.keyMode === "dark";
   const box = () => { E.rr(0, 0, RC.w, RC.h, 22); ctx.fillStyle = S.colors.render; ctx.fill(); };
@@ -31,7 +37,8 @@ function renderCard(f) {
   const img = im("render"), ia = S.showImage ? clamp((pc - a0 - .7 * (a1 - a0)) / (.25 * (a1 - a0) || 1)) : 0;
   if (img && ia > 0) { ctx.save(); ctx.globalAlpha *= ia; E.cover(img, 0, 0, RC.w, RC.h, 22, false); const g = ctx.createLinearGradient(0, RC.h * .5, 0, RC.h); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.55)"); ctx.fillStyle = g; E.rr(0, 0, RC.w, RC.h, 22); ctx.fill(); ctx.restore(); }
   E.rr(0, 0, RC.w, RC.h, 22); ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = S.colors.renderName; ctx.font = `500 32px ${E.SANS}`; ctx.textBaseline = "middle"; ctx.fillText(S.fileName, 40, 52);
+  ctx.fillStyle = S.colors.renderName; ctx.font = `500 32px ${E.SANS}`; ctx.textBaseline = "middle";
+  { let nm = String(S.fileName); const mw = RC.w - 80; if (ctx.measureText(nm).width > mw) { while (nm && ctx.measureText(nm + "…").width > mw) nm = nm.slice(0, -1); nm += "…"; } ctx.fillText(nm, 40, 52); }
   ctx.fillStyle = S.colors.pct; ctx.font = `700 40px ${E.SANS}`; ctx.textAlign = "right"; ctx.fillText(pc + "%", RC.w - 40, RC.h - 108);
   E.rr(40, RC.h - 62, RC.w - 80, 14, 7); ctx.fillStyle = S.colors.barTrack; ctx.fill();
   if (pc > 0) { E.rr(40, RC.h - 62, Math.max(14, (RC.w - 80) * pc / 100), 14, 7); ctx.fillStyle = S.colors.bar; ctx.fill(); }
@@ -40,7 +47,7 @@ function renderCard(f) {
 
 E.start({
   title: "모션 06 · 렌더링 진행 카드", group: "릴스02 템플릿", file: "motion06", state: S, alpha: true,
-  intro: "렌더링 카드가 톡 떠오르고, 진행 막대와 퍼센트가 올라가며 미리보기 이미지가 서서히 드러나요.",
+  intro: "렌더링 카드가 톡 떠오르고, 진행 막대와 퍼센트가 올라가며 미리보기 이미지가 서서히 드러나요. 카드 모양은 첨부한 이미지·영상 비율(가로 16:9, 세로 9:16 등)을 따라가요.",
   images: { "img.render": [{ file: "m06_render.jpg" }] },
   sections: [
     { title: "공통", hint: "크로마키면 점 격자와 그림자 없이 단색으로 채워져 캡컷에서 바로 지울 수 있어요.",
@@ -49,6 +56,7 @@ E.start({
         [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.bg", label: "배경" }, { type: "color", key: "colors.grid", label: "점 격자" }]] },
     { title: "① 카드 등장", durKey: "1",
       rows: [[{ type: "images", key: "img.render", label: "렌더링 미리보기 이미지" }, { type: "bool", key: "showImage", label: "이미지 서서히 보이기" }],
+        [{ type: "bool", key: "fitMedia", label: "카드 비율을 첨부 이미지·영상에 맞춤 (가로/세로)" }],
         [{ key: "fileName", label: "파일 이름" }, { type: "number", key: "d1", label: "길이 (프레임)", min: 4, max: 40 }],
         [{ type: "sub", label: "색상" }], [{ type: "color", key: "colors.render", label: "렌더링 카드" }, { type: "color", key: "colors.renderName", label: "파일 이름 글자" }]] },
     { title: "② 진행", durKey: "2",
